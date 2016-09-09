@@ -1,7 +1,8 @@
 #get max number of followers from parsed_zika
+library(dplyr)
 
-sub <- subset(parsed_zika_12days, select = c(screen_name, followers_count));
+sub <- subset(parsed_zika_12days, select = c(screen_name, followers_count))
 
-topfollowers<- sub %>% group_by(screen_name) %>% summarise(followers = max(followers_count));
+topfollowers <- sub %>% group_by(screen_name) %>% summarise(followers = max(followers_count))
 
-head(arrange(topfollowers, desc(followers)), n = 20)
+topfollowers <- head(arrange(topfollowers, desc(followers)), n = 20)
