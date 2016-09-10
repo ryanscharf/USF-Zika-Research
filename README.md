@@ -24,9 +24,13 @@ place_lon
 lat                     
 lon                     
 mentioned_users         -";" separated multivalued column
+
 mentioned_id            -";" separated multivalued column
+
 hashes                  -";" separated multivalued column
+
 parsed_media_type       -";" separated multivalued column
+
 parsed_media_url        -";" separated multivalued column
 
 # Parse workthrow overview
