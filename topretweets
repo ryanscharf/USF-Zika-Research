@@ -1,6 +1,0 @@
-#get top retweets
-library(plyr, dplyr)
-
-toprtt <- parsed_zika_12days %>% group_by(text) %>% summarise(retweet_count = max(retweet_count))
-
-toprtt <- head(arrange(toprtt, desc(retweet_count)), n = 20)
