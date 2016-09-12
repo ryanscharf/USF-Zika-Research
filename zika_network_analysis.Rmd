@@ -1,0 +1,109 @@
+---
+title: "zika_analysis"
+author: "Thomas E. Keller"
+date: "September 9, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## An updated zika markdown document
+
+I moved the parsing to a separate script as for better or worse as that grew complicated enough to become too long for a document style description. The downstream analysis of the CSV document itself, however should be sufficiently concise to work within a document framework.
+
+```{r prep-net}
+library(igraph)
+library(readr)
+library(dplyr)
+df=read_csv('parsed_zika_12days.csv')
+#clean twitter text for glimpsing
+#don't need to do this, it's in the parsing step now
+#df$text= iconv(df$text, to='UTF-8', sub = "byte")
+
+df_net=filter(df,!is.na(rt_screen_name))
+
+```
+
+
+## Making edges and graph
+```{r make-net}
+#Some of this code modified from Keith H. Turner's 
+#great twitter analysis https://khturner.shinyapps.io/HashtagISME16/
+#he has a github link for the R code as well
+edges = data.frame(from=df_net$screen_name,to=df_net$rt_screen_name,stringsAsFactors = F)  %>% group_by(from,to) %>% summarize(value = n())
+
+# Build a df for nodes
+nodes <- data.frame(id = unique(c(edges$from, edges$to)),
+                    label = unique(c(edges$from, edges$to)),
+                    stringsAsFactors = F) %>% tbl_df
+
+library(igraph)
+rt_graph <- make_empty_graph() + vertices(nodes$id) +
+  edges(as.vector(rbind(edges$from, edges$to)), weight = edges$value)
+```
+
+```{r center_stats}
+print(centr_eigen(rt_graph,directed=T)$centralization)
+print(centralization.betweenness(rt_graph)$centralization)
+print(centralization.closeness(rt_graph)$centralization)
+
+pr=page_rank(rt_graph,directed=T,weights = E(rt_graph)$weight)$vector
+#because we're using directed graphs using pagerank instead of eigenvector centrality 
+#(better properties) need to research more
+#quantile cutoff to start
+#select top 1% centrality nodes/accounts
+pr_quant=pr[which(pr>quantile(pr,.99))]
+pr_sort=sort(pr_quant,decreasing=T)
+print(head(pr_sort,n=30))
+outdf=data.frame(screen_names=names(pr_sort),page_rank=pr_sort)
+#write.csv(outdf,file='top_pagerank_zika.csv',row.names=F)
+
+rt_between=centr_betw(rt_graph)$res
+
+```
+
+# closeness centrality
+Calculation of closeness centrality is somewhat compute intensive compared to other calculations
+scratch that, I guess it was just when I was just doing undirected paths. It does not seem particularly illuminating though. Scratch that, the out-degree is not very meaningful, or at least is not capturing any government accounts high up in the metric. 
+
+The in-degree closeness centrality, however, does work better in this measure. Better simply meaning that you see more of the expected government agencies and news twitter handles high in the metric.
+```{r cent-close}
+rt_close_out=centr_clo(rt_graph,mode='out')$res
+rt_close_in=centr_clo(rt_graph,mode='in')$res
+close_df=data.frame(screen_name=nodes$label,closeness_out=rt_close_out,close_in=rt_close_in)
+close_q=close_df[which(close_df$closeness_out>quantile(close_df$closeness_out,.99)),]
+close_q=close_q[order(-close_q$closeness_out),]
+print(head(close_q,n=30))
+close_q2=close_df[which(close_df$close_in>quantile(close_df$close_in,.99)),]
+close_q2=close_q2[order(-close_q2$close_in),]
+print(head(close_q2,n=30))
+```  
+
+# betweenness centrality
+Well, all three metrics give different answers; something to dig into further.
+
+```{r cent-betw}
+rt_betw=centr_betw(rt_graph)$res
+betw_df=data.frame(screen_name=nodes$label,betw=rt_betw)
+betw_q=betw_df[which(betw_df$betw>quantile(betw_df$betw,.99)),]
+betw_q=betw_q[order(-betw_q$betw),]
+print(head(betw_q,n=30))
+```
+
+```{r geph}
+library(rgexf)
+rg=igraph.to.gexf(rt_graph)
+f=file("retweet_zika-0825-0905-2016.gexf")
+writeLines(rg.gexf$graph, con = f)
+close(f)
+```
+
+# gephi style visualization in R
+
+making big networks in R is hard, but the main algorithm in gephi was ported recently to R -- "Force Atlas 2". 
+
+```{r atlas}
+
+```
