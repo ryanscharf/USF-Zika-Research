@@ -8,7 +8,7 @@
 getpics <- function(s, q)
 {
   require(plyr)
-topphotos <- count(s$parsed_media_url)
+topphotos <- plyr::count(s$parsed_media_url)
 topphotos <- na.omit(topphotos)
 topphotos <<- head(arrange(topphotos, desc(freq)), n = q)
 }

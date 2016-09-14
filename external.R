@@ -1,7 +1,8 @@
 #top external links
-library(plyr, dplyr)
-
-ext <- count(parsed_zika_12days$expanded_url)
+#requires plyr
+#must unload dplyr
+getext <- function(s,q)
+ext <- plyr::count((s$expanded_url))
 ext <- na.omit(ext)
 
-ext <- head(arrange(ext, desc(freq)), n = 20)
+ext <- head(arrange(ext, desc(freq)), n = q)
