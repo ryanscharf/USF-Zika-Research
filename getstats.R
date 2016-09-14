@@ -29,5 +29,6 @@ rt <- count(s$rt_screen_name)
 rt <- na.omit(rt)
 rt <- head(arrange(rt, desc(freq)), n = q)
 rtusers <<- rt
+
 }
 
