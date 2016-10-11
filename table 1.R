@@ -12,7 +12,7 @@ length(unique(bss$screen_name))
 length(unique(bss$country))
 
 #number of url only tweets
-bss <- zika1[is.na(zika1[,7]) & !is.na(zika1[,26]),]
+bss <- zika1[is.na(zika1[,7]) & !is.na(zika1[,26]),]  # is.na(zika1[,7] calculate tweets with NO url. Also, please replace "bss" with something else so that this is distinguishable from the variable above.
 length(bss[,1])
 #number of unique url only agents
 length(unique(bss$screen_name))
