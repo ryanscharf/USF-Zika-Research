@@ -5,6 +5,7 @@
 
 #number of  text only tweets
 bss <- zika1[is.na(zika1[,7]) & is.na(zika1[,26]),]
+length(bss[,1])
 #number of unique text only agents
 length(unique(bss$screen_name))
 #numberb ofo unique text only coutnries
