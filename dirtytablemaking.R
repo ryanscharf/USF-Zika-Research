@@ -12,7 +12,7 @@ activeagents <- activeagents[, c(4,26, 7, numb)]
 #activeagents <- arrange(activeagents, desc(obj$field), n = 100)
 
 aa <- obj
-aa <- plyr::rename(aa, c("x" = field))
+aa <- plyr::rename(aa, c("x" = get(field)))
 
 
 # get text only
