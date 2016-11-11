@@ -12,7 +12,7 @@ length(unique(bss$screen_name))
 length(unique(bss$country))
 
 #number of url only tweets
-bss <- zika1[is.na(zika1[,7]) & !is.na(zika1[,26]),]  # is.na(zika1[,7] calculate tweets with NO url. I would think replacing "bss" with different variable name would be a good idea. what do you think?
+bss <- zika1[!is.na(zika1[,7]) & is.na(zika1[,26]),]  # is.na(zika1[,7] calculate tweets with NO url. I would think replacing "bss" with different variable name would be a good idea. what do you think?
 length(bss[,1])
 #number of unique url only agents
 length(unique(bss$screen_name))
