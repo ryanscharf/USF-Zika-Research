@@ -1,8 +1,12 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 #conglomeration of spaghetti scripts used; needs cleaning
 =======
 #conglomeration of spaghetti scripts used
 >>>>>>> 8bb830b107652bd3d5ff8cc53436a134f2c23a03
+=======
+#conglomeration of spaghetti scripts used; needs cleaning
+>>>>>>> 77750de1e98dc042468e9fcae79e129c37ddfcd6
 #generating tables for groupings of images, texts, and video for revised version of table 2
 
 cd <- separate(cd, col = mentioned_users, into = c("mention1", "mention2", "mention3", "mention4", "mention5", "mention6", "mention7", "mention8", "mention9", "mention10", "mention11", "mention12", "mention13", "mention14"), sep = ";", extra = "merge", fill = "right")
