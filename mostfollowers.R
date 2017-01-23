@@ -1,4 +1,6 @@
 #get max number of followers from parsed_zika
+#s is your target data set
+#q is how many rowss you want returned in your tables
 
 mostfollowers <- function(s, q)
 {

@@ -2,6 +2,7 @@
 #reeetweets[reeetweets == 0] <- NA
 #reeetweets<- na.omit(reeetweets)
 
+#original script for creating table 1
 
 #number of  text only tweets
 bss <- zika1[is.na(zika1[,7]) & is.na(zika1[,26]),]

@@ -1,3 +1,5 @@
+#test wordmap generation
+#s is source data
 
 makecloud <- function(s)
 {

@@ -1,3 +1,5 @@
+##legacy method used for hashtag. it's hideous
+
 #most mentioned users | $mentioned_users
 s <- separate(s, col = mentioned_users, into = c("mention1", "mention2", "mention3", "mention4", "mention5", "mention6", "mention7", "mention8", "mention9", "mention10", "mention11", "mention12", "mention13", "mention14"), sep = ";", extra = "merge", fill = "right")
 mentions <- plyr::count(s$mention1)

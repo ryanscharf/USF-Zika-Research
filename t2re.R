@@ -1,3 +1,7 @@
+#secondary method for generating table 2
+#s is your target data set
+#q is how many rowss you want returned in your tables
+
 t2re <-function(s, q)
 {
   require(dplyr)

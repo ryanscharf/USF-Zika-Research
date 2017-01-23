@@ -1,4 +1,7 @@
-#table 5
+#fucntion to create table 5
+#s is your target data set
+#q is how many rowss you want returned in your tables
+
 tbl_5 <- function(src)
 {
 tbl5 <<- data.frame(matrix(ncol = 2, nrow = 5))

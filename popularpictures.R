@@ -4,7 +4,6 @@
 ##sub <- subset(parsed_zika_12days, !is.na(parsed_media_type));
 ##toppics <- sub %>% group_by(parsed_media_url) %>% summarise(pictures = max(parsed_media_url))
 
-
 getpics <- function(s, q)
 {
   require(plyr)
