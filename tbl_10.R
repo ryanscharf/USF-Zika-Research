@@ -1,3 +1,6 @@
+#src is your source data set
+#generate table 10; analysis of most retweets
+
 tbl_10<-function(src)
 {
 tbl10 <- src[src$text %in% topretweets$text, ]

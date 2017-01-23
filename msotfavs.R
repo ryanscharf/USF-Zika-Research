@@ -1,4 +1,6 @@
 #most favorited tweets
+#s is your target data set
+#q is how many rowss you want returned in your tables
 
 mostfavs <- function(s,q)
 {

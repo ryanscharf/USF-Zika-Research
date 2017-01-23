@@ -1,3 +1,4 @@
+#exports a stats.xlsx file with different sheets for each table
 exportxlsx <- function()
 {
   require(xlsx)
@@ -10,5 +11,4 @@ exportxlsx <- function()
   write.xlsx(tweets, file = "stats.xlsx", sheetName="tweets", append = TRUE)
   write.xlsx(favs, file = "stats.xlsx", sheetName="favs", append = TRUE)
   write.xlsx(usrs, file = "stats.xlsx", sheetName="usrs", append = TRUE)
-  
 }

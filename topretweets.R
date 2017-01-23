@@ -1,9 +1,6 @@
-#get top (q) retweets from source (s)
+#get quanity (q) of top retweets from source (s)
 #library(plyr)
 #library(dplyr)
-#devtools::use_package("plyr", "imports")
-#devtools::use_package("dplyr", "imports")
-
 
 toprtt <- function(s, q)
 {

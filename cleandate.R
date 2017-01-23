@@ -1,4 +1,4 @@
-#clean dates and 
+#cleans date formatting
 
 cleandate <- function(s)
 {

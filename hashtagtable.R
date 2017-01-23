@@ -1,6 +1,5 @@
-#hashchart <- zhash[,c(3,37:56,59)]
-#hashchart <- hashchart[!is.na(hashchart$hash1),]
-
+#creates a series of tables of hashtag popularity by day and through the entire duration of data collection
+#must have hashtags expanded by usage of getstats()
 
 aug25 <- hashchart[hashchart$cleandate == "2016-08-25",]
 aug25 <- apply(aug25[,2:21], 2, FUN=function(x) plyr::count(x))
@@ -98,6 +97,7 @@ sep5 <- sep5[!is.na(sep5[,1]),]
 rownames(sep5) = NULL
 colnames(sep5) <- c("x", "2016-9-05")
 
+#combines each day into one master table
 hashtable <- Reduce(function(x,y) merge(x,y, all=TRUE), list(aug25,aug26,aug27,aug28,aug29,aug30,aug31,sep1,sep2,sep3,sep4,sep5))
 hashtable$total <- rowSums(hashtable[,2:13], na.rm=FALSE)
 hashtable$total <- rowSums(hashtable[,2:13], na.rm=TRUE)

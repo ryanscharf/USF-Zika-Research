@@ -1,7 +1,9 @@
-#stuff staht starts with a url
-#url <- zika1[is.na(zika1[,26]),]
-#url <- url[grepl('^http', url$text),]
-#url <- url[-grepl("[[:blank:]]", url$text),]
+##stuff that starts with a url
+##url <- zika1[is.na(zika1[,26]),]
+##url <- url[grepl('^http', url$text),]
+##url <- url[-grepl("[[:blank:]]", url$text),]
+#generates values to create a nested pi chart to help visualize the relationship
+#between subgroups of the data 
 
 zq <- zika1
 zqimage <- zq[grep("photo/1", zq$parsed_media_url),]

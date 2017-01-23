@@ -1,4 +1,3 @@
-
 ######must fix renaming by field arg
 
 analysistable <- function(field, obj, numb)
@@ -43,6 +42,7 @@ aaa <- plyr::rename(aaa,c("x" = field, "freq" = "video"))
 aa1 <- merge(aa1, aaa, by=field, all=TRUE)
 #aa1 <- aa1[!is.na(aa1[,2]),]
 
+#clean up table
 aa1 <- head(arrange(aa1, desc(freq)), n = 100)
 aa1 <- aa1[,c(3,5,6,4,1,2)]
 aa1 <<- aa1

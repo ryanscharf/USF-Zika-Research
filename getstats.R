@@ -1,7 +1,8 @@
-#get top 20 images, mentions, tweets, users, countries,
-#library(plyr, dplyr)
-library(tidyr)
+#get top 20 images, mentions, tweets, users, countries, hashtags
+#s is your target data set
+#q is how many rowss you want returned in your tables
 
+library(tidyr)
 
 getstats <- function(s, q)
 {
