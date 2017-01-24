@@ -1,6 +1,7 @@
 #conglomeration of spaghetti scripts used; needs cleaning
 #generating tables for groupings of images, texts, and video for revised version of table 2
 
+##separating mentions{
 cd <- separate(cd, col = mentioned_users, into = c("mention1", "mention2", "mention3", "mention4", "mention5", "mention6", "mention7", "mention8", "mention9", "mention10", "mention11", "mention12", "mention13", "mention14"), sep = ";", extra = "merge", fill = "right")
 
 
@@ -27,7 +28,7 @@ write.xlsx(mentionsae, "mentions.xlsx", sheetName="tfreq")
 write.xlsx(mentionsbf, "mentions.xlsx", sheetName="ifreq", append = TRUE)
 write.xlsx(mentionscd, "mentions.xlsx", sheetName="vfreq", append = TRUE)
 
-
+##}
 
 
 ae1 <- ae[ae$retweet_count != 0,]

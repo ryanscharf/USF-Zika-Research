@@ -1,5 +1,6 @@
 #conglomeration of spaghetti scripts used, needs cleaning
 #generating revised, expanded version of topretweets table
+#generates 3 tables of the top retweeted text, image, and video tweets
 
 aetrt <- plyr::count(ae$text)
 aetrt <- head(arrange(aetrt, desc(freq)), n = 100)
