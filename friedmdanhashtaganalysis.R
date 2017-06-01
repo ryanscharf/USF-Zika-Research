@@ -1,5 +1,5 @@
 #My code for an analysis of hastags on zika related tweets
-#https://ryanscharf.com/2016/12/02/an-analysis-of-hashtags-on-zika-related-tweets/
+#http://ryanscharf.com/an-analysis-of-hashtags-on-zika-related-tweets/
 
 zq1 <- separate(zqimage, col = hashes, into = c("hash1", "hash2", "hash3", 
                                                 "hash4", "hash5", "hash6", "hash7", "hash8", "hash9", "hash10", "hash11", 
