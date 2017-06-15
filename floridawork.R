@@ -13,7 +13,16 @@ dirs <- paste(dirs, "/data.txt", sep="")
 #apply the parse function to the list of files
 parsed30d <- lapply(dirs, parseTweets_mod)
 #turns the list of data frames into one data frame
-parsed30d <- ldply(parsed30d, data.frame)
+parsed30d <- bind_rows(parsed30d)
+
+#dplyr method to parse tweets; slower by 1.4% than lapply method
+dirs <- data.frame(dirs)
+parsed30d <- as.data.frame(dirs) %>% rowwise() %>% do(parseTweets_mod(paste(.$dirs)))
+
+#turning NAs to 0s for favorite count and retweet count
+parsed30d$retweet_count[is.na(parsed30d$retweet_count)] <- 0
+parsed30d$favorite_count[is.na(parsed30d$favorite_count)] <- 0
+
 
 #cleaning up the date field
 parsed30d$cleandate <- strptime(parsed30d$datetime, "%Y-%m-%d %H:%M:%S")
