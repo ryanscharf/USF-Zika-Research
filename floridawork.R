@@ -4,6 +4,8 @@ library(ggplot2)
 library(ggthemes)
 library(Cairo)
 library(tidyr)
+library(igraph)
+library(rgexf)
 
 
 #import a list of directories for the extracted file
@@ -150,3 +152,23 @@ flhashsapc$hashtag <- rownames(flhashsapc)
 flhashsapc <- flhashsapc[,c(ncol(flhashsapc),1:(ncol(flhashsapc)-1))]
 
 flhashsapc <- flhashsapc %>% replace(is.na(.), 0 ) %>% mutate(total = rowSums(.[2:29])) %>% arrange(desc(total))
+
+
+
+
+#making het .gexf file
+df_net <- fl30d[!is.na(fl30d$rt_screen_name), ]
+
+edges <- data.frame(from=df_net$screen_name, to = df_net$rt_screen_name, stringsAsFactors = F) %>%
+  group_by(from,to) %>% dplyr::summarize(value = n())
+
+nodes <- data.frame(id = unique(c(edges$from, edges$to)),
+                    label = unique(c(edges$from, edges$to)),
+                    stringsAsFactors = F) %>% tbl_df
+
+rt_graph <- make_empty_graph() + vertices(nodes$id) + edges(as.vector(rbind(edges$from, edges$to)), weight = edges$value)
+
+rg.gexf <- igraph.to.gexf(rt_graph)
+f <- file("fl30dretweets.gexf")
+writeLines(rg.gexf$graph, con = f)
+close(f)
