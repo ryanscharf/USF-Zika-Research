@@ -38,7 +38,7 @@ parsed30d <- parsed30d[!(parsed30d$tweet_id %in% dup30$x), ]
 #subset data to be only tweets dealing with Florida
 #flexpr <- c("fl","FL", "Fl", "Fla","FLA", "fla","Florida", "FLORIDA", "florida")
 #fl30d <- parsed30d[grep(paste(flexpr, collapse = "|"), parsed30d, fixed = TRUE),]
-fl30d <- parsed30d[grep('(\\bfl\\b)|(\\bfla\\b)|(\\bflorida\\b)', parsed30d$text, perl=T, ignore.case = T), ]
+fl30d <- parsed30d[grep('(//bfl//b)|(//bfla//b)|(//bflorida//b)', parsed30d$text, perl=T, ignore.case = T), ]
 #doublechecking grep outcome
 fl30d1 <- parsed30d[grep("fl|FL|Fl|Fla|FLA|fla|Florida|FLORIDA|florida", parsed30d$text), ]
 notfl <- fl30d1[!(fl30d1$tweet_id %in% fl30d$tweet_id), ]
@@ -49,8 +49,8 @@ rm(fl30d1, notfl)
 CairoWin()
 flddates <- plyr::count(fl30d$cleandate)
 ggplot(flddates, aes(x=x, y = freq, group = 1)) + geom_line() + labs(x = "Date", y = "Number of Tweets") + ggtitle("Number of Posts Per Day") +
- theme_few() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 12), axis.text.y = element_text(size = 12),
-                     panel.grid.major = element_line(color = "grey", size = .25)) 
+  theme_few() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 12), axis.text.y = element_text(size = 12),
+                      panel.grid.major = element_line(color = "grey", size = .25)) 
 ggsave(file = "30dposts.png", type="cairo-png")
 
 #graph cumulative percentages of total
@@ -69,9 +69,9 @@ ggsave(file = "30dcumsumsmean.png", type="cairo-png")
 
 #start hashtag analysis
 fl30dh <- separate(fl30d, col = hashes, into = c("hash1", "hash2", "hash3", 
-                                                "hash4", "hash5", "hash6", "hash7", "hash8", "hash9", "hash10", "hash11", 
-                                                "hash12", "hash13", "hash14", "hash15", "hash16", "hash17", "hash18", "hash19",
-                                                "hash20"), sep = ";", extra = "merge", fill = "right")
+                                                 "hash4", "hash5", "hash6", "hash7", "hash8", "hash9", "hash10", "hash11", 
+                                                 "hash12", "hash13", "hash14", "hash15", "hash16", "hash17", "hash18", "hash19",
+                                                 "hash20"), sep = ";", extra = "merge", fill = "right")
 #transalate all hashtags to lowercase and count.  Nearly 14% of hashes (326) had varying cases.
 flhashes <- apply(fl30dh[,24:43], 2, FUN=function(x) plyr::count(stringi::stri_trans_tolower(x)))
 flhashes <- do.call(rbind.data.frame, flhashes)
@@ -97,7 +97,7 @@ for(i in 2:20) {
   tempdf <- data.frame(flhashsap$cleandate, flhashsap[[i]])
   colnames(tempdf) <- c("date", "hashtag")
   flhashsap1 <<- rbind(flhashsap1, tempdf)
-    } 
+} 
 rm(xz)
 flhashsap1 <- flhashsap1[!(is.na(flhashsap1$hashtag)), ]
 flhashsap1 <- flhashsap1 %>% group_by(date, hashtag) %>% tally()
@@ -121,7 +121,7 @@ ggsave(file = "top10hashtags_100stackedareaplot.png", type="cairo-png")
 CairoWin()
 ggplot(flhashsap1, aes(x = date, y = n, group = hashtag)) + geom_area(colour="black", size=.4, aes(color = hashtag, fill = hashtag, group = hashtag), position = "stack") +
   theme_few() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 12), axis.text.y = element_text(size = 12),  
-  panel.grid.major = element_line(color = "grey", size = .25)) + scale_fill_viridis(option = "plasma", discrete = TRUE) + labs(x = "Date", y = "Number of Hashtags") +
+                      panel.grid.major = element_line(color = "grey", size = .25)) + scale_fill_viridis(option = "plasma", discrete = TRUE) + labs(x = "Date", y = "Number of Hashtags") +
   ggtitle("Stacked Area Chart of the 10 Most Common Hashtags") + scale_y_continuous(breaks = seq(0,1500, by = 200), expand = c(0,0), limits = c(0, 1500)) +
   scale_x_discrete(expand = c(0,0))
 ggsave(file = "top10hashtags_stackedareaplot.png", type = "cairo-png")
@@ -172,3 +172,51 @@ rg.gexf <- igraph.to.gexf(rt_graph)
 f <- file("fl30dretweets.gexf")
 writeLines(rg.gexf$graph, con = f)
 close(f)
+
+
+
+
+library(maptools)
+library(rgeos)
+library(rgdal)
+library(broom)
+library(grid)
+library(gridExtra)
+
+#http://cdmaps.polisci.ucla.edu/
+fldist <- rgdal::readOGR("C:/Users/Ryan/Documents/zika/USF-Zika-Research/mapping/districts114.shp")
+fldist <- fldist[fldist@data$STATENAME == "Florida", ]
+fldist@data <- data.frame(fldist@data, congress[match(fldist@data$DISTRICT, congress$DISTRICT), ])
+#fldist <- gSimplify(fldist, tol = 0.00001)
+fldist <- gBuffer(fldist, byid = T, width = 0)
+#fldist$ID <- as.numeric(fldist$ID)
+fldistm <- broom::tidy(fldist[, 1:15], region = "DISTRICT")
+fldistm$id <- as.numeric(fldistm$id)
+fldistm <- merge(fldistm, fldist@data, by.x = "id", by.y = "DISTRICT")
+
+#CairoWin()Error in UseMethod("depth") : 
+#no applicable method for 'depth' applied to an object of class "NULL"
+G1 <- ggplot() + geom_polygon(data = fldistm, aes(long,lat, group = group), fill = "light gray") + 
+  geom_polygon(data = fldistm, aes(long,lat, group = group, fill = mentions), color = "white") + 
+  scale_fill_viridis(option = "plasma") + 
+  coord_map() + theme_map() + 
+  theme(legend.position = "right", legend.text = element_text(size=30)) +
+  guides(fill = guide_colorbar(title.theme = element_text(size = 30, angle = 0)))
+#ggsave(file = "Tweetfreqmap.png", type = "cairo-png", width = 7, height = 7, units = "in")
+
+
+G2 <- ggplot() + geom_polygon(data = fldistm, aes(long,lat, group = group), fill = "light gray") + 
+  geom_polygon(data = fldistm, aes(long,lat, group = group, fill = mentions), color = "white") + 
+  scale_fill_viridis(option = "plasma") +
+  coord_map(ylim = c(25,27), xlim = c(-82, -80)) +
+  theme_map() + theme(legend.position="none") + 
+  geom_rect(aes(xmin = -82, xmax = -80, ymin = 25, ymax = 27), size = 1, color = "black", alpha = 0)
+
+
+grid.newpage()
+CairoPNG(file = "mentionsfreqmap.png", width = 1773, height = 1440, units = "px", pointsize = 42)
+print(G1)
+print(G2, vp = viewport(width = 0.6, height = 0.6, x = .3, y = .3))
+#print(G1, vp = viewport(width = 1, height = 1, x = 0.5, y = 0.5))
+dev.off()
+
