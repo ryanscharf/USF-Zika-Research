@@ -6,7 +6,12 @@ library(Cairo)
 library(tidyr)
 library(igraph)
 library(rgexf)
-
+library(maptools)
+library(rgeos)
+library(rgdal)
+library(broom)
+library(grid)
+library(gridExtra)
 
 #import a list of directories for the extracted file
 dirs <- list.dirs('~/zika/USF-Zika-Research/raw month', recursive=FALSE)
@@ -174,15 +179,7 @@ writeLines(rg.gexf$graph, con = f)
 close(f)
 
 
-
-
-library(maptools)
-library(rgeos)
-library(rgdal)
-library(broom)
-library(grid)
-library(gridExtra)
-
+#
 #http://cdmaps.polisci.ucla.edu/
 fldist <- rgdal::readOGR("C:/Users/Ryan/Documents/zika/USF-Zika-Research/mapping/districts114.shp")
 fldist <- fldist[fldist@data$STATENAME == "Florida", ]

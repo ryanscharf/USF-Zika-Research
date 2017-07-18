@@ -53,10 +53,19 @@ getfollowerslist <- function(handl) {
 }
 
 countstats <- function(handl, df) {
-  z <- deparse(substitute(handl))
-  a <- nrow(df[grep(paste0("\\b",noquote(z),"\\b"), df$screen_name, ignore.case = T), ])
-  b <- nrow(df[grep(paste0("\\b",noquote(z),"\\b"), df$rt_screen_name, ignore.case = T), ])
-  c <- nrow(parsed30d[grep(paste0("\\b",noquote(z),"\\b"), parsed30d$mentioned_users, ignore.case = T), ])
-  cat(paste(z, " - tweets:", a, ", retweets: ", b, ", mentions: ", c))
-}
+  
+  # function(handl, df){
+  #z <- deparse(substitute(handl))
+  #a <- nrow(df[grep(paste0("\\b",noquote(z),"\\b"), df$screen_name, ignore.case = T), ])
+  #b <- nrow(df[grep(paste0("\\b",noquote(z),"\\b"), df$rt_screen_name, ignore.case = T), ])
+  #c <- nrow(parsed30d[grep(paste0("\\b",noquote(z),"\\b"), parsed30d$mentioned_users, ignore.case = T), ])
+  #cat(paste(z, " - tweets:", a, ", retweets: ", b, ", mentions: ", c))
+  # }
+  handl <- handl
+  df <- df
+  return(handl %>% rowwise() %>% mutate(tweets = nrow(filter(df, grepl(paste0("\\b",noquote(handl),"\\b"), df$screen_name, ignore.case = T))),
+                          retweets = nrow(filter(df, grepl(paste0("\\b",noquote(handl),"\\b"), df$rt_screen_name, ignore.case = T))),
+                          mentions = nrow(filter(df, grepl(paste0("\\b",noquote(handl),"\\b"), df$mentioned_users, ignore.case = T))) - retweets)
+  )
+  }
 
