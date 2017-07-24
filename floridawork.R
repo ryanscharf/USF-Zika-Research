@@ -250,7 +250,6 @@ length(zqvideo$tweet_id) + length(zqvideourl$tweet_id) + length(zqimage$tweet_id
 
 rubsett1 <- as.data.frame(unique(rubsett$screen_name))
 colnames(rubsett1)[1] <- "screen_name"
-rubsetm <- dplyr::count()
 zqimage <-  dplyr::count(zqimage, screen_name)
 zqimageurl = dplyr::count(zqimageurl, screen_name)
 zqvideo = dplyr::count(zqvideo, screen_name)
