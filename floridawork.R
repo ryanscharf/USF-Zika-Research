@@ -159,9 +159,7 @@ flhashsapc <- flhashsapc[,c(ncol(flhashsapc),1:(ncol(flhashsapc)-1))]
 flhashsapc <- flhashsapc %>% replace(is.na(.), 0 ) %>% mutate(total = rowSums(.[2:29])) %>% arrange(desc(total))
 
 
-
-
-#making het .gexf file
+#making the .gexf file
 df_net <- fl30d[!is.na(fl30d$rt_screen_name), ]
 
 edges <- data.frame(from=df_net$screen_name, to = df_net$rt_screen_name, stringsAsFactors = F) %>%
@@ -217,3 +215,51 @@ print(G2, vp = viewport(width = 0.6, height = 0.6, x = .3, y = .3))
 #print(G1, vp = viewport(width = 1, height = 1, x = 0.5, y = 0.5))
 dev.off()
 
+####################################
+rublist <- countstats(rublist$handle, parsed30d)
+rubsett <- parsed30d[tolower(parsed30d$screen_name) %in% tolower(rublist$handle), ]
+rubsetr <- parsed30d[tolower(parsed30d$rt_screen_name) %in% tolower(rublist$handle), ]
+rubsetm <- filter(parsed30d, grepl(paste(rublist$handle, collapse="|"), mentioned_users))
+#rubsetm <- rubsetm[!grepl(paste0("\\b",noquote(rubsetm[[ ,13]]),"\\b"), rubsetm$mentioned_users, ignore.case = T), ]}
+
+
+zq <- rubsett
+zqimage <- zq[grep("photo/1", zq$parsed_media_url),]
+zqimageurl <- zqimage[!is.na(zqimage[,7]),]
+zqimage <- zqimage[!(zqimage$tweet_id %in% zqimageurl$tweet_id),]
+zqremainder <- zq[!(zq$tweet_id %in% zqimage$tweet_id),]
+zqremainder <- zqremainder[!(zqremainder$tweet_id %in% zqimageurl$tweet_id),]
+
+zqvideo <- zqremainder[grep("video/1", zqremainder$parsed_media_url),]
+zqvideourl <- zqvideo[!is.na(zqvideo[,7]),]
+zqvideo <- zqvideo[!(zqvideo$tweet_id %in% zqvideourl$tweet_id),]
+zqremainder <- zqremainder[!(zqremainder$tweet_id %in% zqvideo$tweet_id),]
+zqremainder <- zqremainder[!(zqremainder$tweet_id %in% zqvideourl$tweet_id),]
+
+zqurl <- zqremainder[!is.na(zqremainder[,7]),]
+zqremainder <- zqremainder[!(zqremainder$tweet_id %in% zqurl$tweet_id),]
+
+g <- zqremainder[grep("http", zqremainder$text),]
+zqremainder <- zqremainder[!(zqremainder$tweet_id %in% g$tweet_id),]
+
+zqtext <- zqremainder
+
+length(zqvideo$tweet_id) + length(zqvideourl$tweet_id) + length(zqimage$tweet_id) + length(zqimageurl$tweet_id) + 
+  length(zqurl$tweet_id) + length(g$tweet_id) + length(zqtext$tweet_id)
+
+
+rubsett1 <- as.data.frame(unique(rubsett$screen_name))
+colnames(rubsett1)[1] <- "screen_name"
+rubsetm <- dplyr::count()
+zqimage <-  dplyr::count(zqimage, screen_name)
+zqimageurl = dplyr::count(zqimageurl, screen_name)
+zqvideo = dplyr::count(zqvideo, screen_name)
+zqvideourl = dplyr::count(zqvideourl, screen_name) 
+zqurl = dplyr::count(zqurl, screen_name)
+zqtext = dplyr::count(zqtext, screen_name)
+g = dplyr::count(g, screen_name)
+fin <- Reduce(function(...) merge(..., by='screen_name', all.x=TRUE), list(rubsett1,zqimage,zqimageurl,
+                                                                    zqvideo,zqvideourl,zqurl,zqtext, g))
+colnames(fin) <- c("screen_name", "images", "image urls", "videos", "video urls", "urls", "text", "other")
+fin[is.na(fin)] <- 0
+write.csv(fin, "types.csv", row.names = F)
