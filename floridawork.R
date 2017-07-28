@@ -262,3 +262,17 @@ fin <- Reduce(function(...) merge(..., by='screen_name', all.x=TRUE), list(rubse
 colnames(fin) <- c("screen_name", "images", "image urls", "videos", "video urls", "urls", "text", "other")
 fin[is.na(fin)] <- 0
 write.csv(fin, "types.csv", row.names = F)
+
+
+summary(aov(tweets ~ Column1, totstat1))
+summary(aov(`#retweets` ~ Column1, totstat1))
+summary(aov(mentions ~ Column1, totstat1))
+
+summary(lm(formula = tweets ~ `#retweets`, data = totstat1))
+summary(lm(formula = tweets ~ mentions, data = totstat1))
+summary(lm(formula = mentions ~ `#retweets`, data = totstat1))
+
+mahal <-mahalanobis(totstat1[, 4:6], colMeans(totstat1[,4:6]), cov(totstat1[,4:6], use = "pairwise.complete.obs"))
+cutoff = qchisq(.999, ncol(totstat1[, 4:6]))
+summary(mahal < cutoff)
+totstat1 <- totstat1[mahal < cutoff, ]
