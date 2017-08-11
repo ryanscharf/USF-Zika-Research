@@ -264,15 +264,32 @@ fin[is.na(fin)] <- 0
 write.csv(fin, "types.csv", row.names = F)
 
 
-summary(aov(tweets ~ Column1, totstat1))
-summary(aov(`#retweets` ~ Column1, totstat1))
-summary(aov(mentions ~ Column1, totstat1))
-
-summary(lm(formula = tweets ~ `#retweets`, data = totstat1))
-summary(lm(formula = tweets ~ mentions, data = totstat1))
-summary(lm(formula = mentions ~ `#retweets`, data = totstat1))
-
-mahal <-mahalanobis(totstat1[, 4:6], colMeans(totstat1[,4:6]), cov(totstat1[,4:6], use = "pairwise.complete.obs"))
-cutoff = qchisq(.999, ncol(totstat1[, 4:6]))
+totstat1 <- totstat[totstat$tweets + totstat$`#retweets` + totstat$mentions > 0, ]
+colnames(totstat1)[5] <- "retweets"
+totstat1 <- totstat1 %>% mutate(avgrewteet = if_else(tweets > 0, retweets / tweets, 0),
+                                avgmentions = if_else(tweets > 0, mentions / tweets, 0))
+mahal <- mahalanobis(totstat1[, 4:6], colMeans(totstat1[,4:6]), cov(totstat1[,4:6], use = "pairwise.complete.obs"))
+cutoff <- qchisq(.997, ncol(totstat1[, 4:6]))
 summary(mahal < cutoff)
 totstat1 <- totstat1[mahal < cutoff, ]
+
+
+summary(lm(tweets ~ Column1, totstat1))
+summary(lm(retweets ~ Column1, totstat1))
+summary(lm(mentions ~ Column1, totstat1))
+
+summary(lm(tweets ~ retweets, totstat1))
+summary(lm(tweets ~ mentions, totstat1))
+summary(lm(mentions ~ retweets, totstat1))
+###
+fit <- lm(tweets ~ Grouping, totstat1)
+summary(fit)
+fit$coefficients
+fit <- lm(retweets ~ Grouping, totstat1)
+summary(fit)
+fit$coefficients
+fit <- lm(mentions ~ Grouping, totstat1)
+summary(fit)
+fit$coefficients
+
+fit <- lm(retweets ~ images + `image urls` + videos + `video urls` + urls + text, totstat1)
