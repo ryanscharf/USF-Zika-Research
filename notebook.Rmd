@@ -263,8 +263,8 @@ In this graph, we can see the progression of the cumulative sums of tweets as ti
 
 Let's see how much of the discussion about Zika includes officials from some of Florida's most populous counties: Miami-Dade, Broward, and Orange County.  
 
-## Creating Functions for Scrapign User Data
-
+## Creating Functions for Scraping User Data
+In order to scrape data and calculate some metrics easily, we can make a few functions.  We will create functions to parse a user's custom list of other users, to parse a the accounts that a user follows, to parse the accounts that follow a user, and to count number of tweets, retweets, and mentions for a user.
 ```{r}
 #you need an api key from twitter from https://apps.twitter.com/app/
 setup_twitter_oauth("")
@@ -353,4 +353,14 @@ countstats <- function(handl, df) {
   }
 }
 ```
+
+The original thought was that some city/county account, government account, or press account might have a comprehensive and relaible list of accounts for health departments/mayors/emergency management groups/etc, but I didn't find any and it ended up being quicker for me to just manually look up the accounts of interest to us.  countstats() is still useful, though.  You can either pass in a single handle to it:
+```{r}
+countstats("WhiteHouse", parsed30d)
+```
+Or you can pass in a list of handles:
+```{r}
+countstats(c("WhiteHouse", "POTUS", "BarackObama"), parsed30d)
+```
+
 
