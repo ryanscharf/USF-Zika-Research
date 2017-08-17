@@ -215,7 +215,7 @@ print(G2, vp = viewport(width = 0.6, height = 0.6, x = .3, y = .3))
 #print(G1, vp = viewport(width = 1, height = 1, x = 0.5, y = 0.5))
 dev.off()
 
-####################################
+####################################rublist subsets
 rublist <- countstats(rublist$handle, parsed30d)
 rubsett <- parsed30d[tolower(parsed30d$screen_name) %in% tolower(rublist$handle), ]
 rubsetr <- parsed30d[tolower(parsed30d$rt_screen_name) %in% tolower(rublist$handle), ]

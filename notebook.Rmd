@@ -304,7 +304,7 @@ getfriendslist <- function(handl) {
   return(friends)
 }
 
-#gets a lsit of the users that follow someone.  doesn't work for private accounts
+#gets a list of the users that follow someone.  doesn't work for private accounts
 getfollowerslist <- function(handl) {
   tempname <- deparse(substitute(handl))
   # user <- getUser(tempname)
@@ -363,4 +363,85 @@ Or you can pass in a list of handles:
 countstats(c("WhiteHouse", "POTUS", "BarackObama"), parsed30d)
 ```
 
-wj
+From here, we can make a more comprehensive list to target.  I had originally made the list in Excel and exported the .csv, but here's the R script to make it easier to follow along:
+```{r, echo=TRUE}
+rublist <- c("WhiteHouse", "POTUS", "BarackObama", "HHSGov", "SecSebelius", "CDCtravel", "CDC_NCBDDD", "CDCGlobal", "CDCgov", "CDCemergency", "CDC_NCEZID", "CDCChronic", "CDCMMWR", "marcorubio", "senrubiopress", "SenBillNelson", "FLGovScott", "HealthyFla","MayorGimenez", "Tomas_Regalado", "Mayor_Jacobs", "orlandomayor", "JackSeiler", "MartyKiar", "jmuoio", "MiamiDadeCounty", "pbcgov", "BrowardCounty", "OrangeCoFL", "CityofMiami", "citybeautiful", "ftlcitynews", "westpalmbch", "repstephmurphy", "congbillposey", "RepDarrenSoto", "RepValDemings", "RepBrianMast", "RepHastingsFL", "RepLoisFrankel", "RepTedDeutch", "DWStweets", "RepDWStweets", "RepWilson", "MarioDB", "RepCurbelo", "RosLehtinen", "FLHealthBroward", "orloem", "MiamiDEM", "readybroward", "pbcdem", "miamidadeem")
+rublist <- countstats(rublist, parsed30d)
+#checking the output
+head(rublist)
+```
+
+From here, lets make a subset of the tweets that contains only the tweets that were made by the users in rublist$screen_name and use that to withdraw some more specific metrics.  One way a tweet can be calssified is by how it delivers content.  A tweet can post an image directly to Twitter, it can post a url and an image, it can post a video directly to Twitter, it can post a url and Video, it can post a non-image-or-video url, and it can be just text.
+
+```{r, echo=TRUE, warning=FALSE}
+#getting the subset of tweets
+rubsett <- parsed30d[tolower(parsed30d$screen_name) %in% tolower(rublist$screen_name), ]
+#safety copy
+zq <- rubsett
+#Start by pulling out all of the embedded-image tweets.  It would seem like searching the parsed_media_type field would be
+#the easiest way to distinguish between photos and videos, but it turns out that that field is not relaible.  You have to
+#search for media type in the parsed_media_url instead.
+zqimage <- zq[grep("photo/1", zq$parsed_media_url),]
+#To get the tweets that have urls and an image, we keep rows in which the expanded_url field are populated.
+zqimageurl <- zqimage[!is.na(zqimage[,7]),]
+#zqimage currently includes the rows with urls in it, so we will exclude those from zqimage by way of their tweet_id
+zqimage <- zqimage[!(zqimage$tweet_id %in% zqimageurl$tweet_id),]
+#we can create an object of the remainder tweets by removing both zqimage and zqimageurl from zq
+zqremainder <- zq[!(zq$tweet_id %in% zqimage$tweet_id),]
+zqremainder <- zqremainder[!(zqremainder$tweet_id %in% zqimageurl$tweet_id),]
+
+#getting videos and videos + urls is the same process as the image
+zqvideo <- zqremainder[grep("video/1", zqremainder$parsed_media_url),]
+zqvideourl <- zqvideo[!is.na(zqvideo[,7]),]
+zqvideo <- zqvideo[!(zqvideo$tweet_id %in% zqvideourl$tweet_id),]
+zqremainder <- zqremainder[!(zqremainder$tweet_id %in% zqvideo$tweet_id),]
+zqremainder <- zqremainder[!(zqremainder$tweet_id %in% zqvideourl$tweet_id),]
+
+#finding solely urls is easy once we've eliminated the image + url and video + url combinations
+zqurl <- zqremainder[!is.na(zqremainder[,7]),]
+zqremainder <- zqremainder[!(zqremainder$tweet_id %in% zqurl$tweet_id),]
+#It's possible for tweets to have urls in them, but not be properly labeled by the parser. g is essentially an error.
+g <- zqremainder[grep("http", zqremainder$text),]
+zqremainder <- zqremainder[!(zqremainder$tweet_id %in% g$tweet_id),]
+#once we've elimitated all the other subsets, zqremaider is just left over as 
+zqtext <- zqremainder
+
+#if the sizes of all of the subsets == the size of rubsett, then all tweets have been classified.
+nrow(zqvideo) + nrow(zqvideourl) + nrow(zqimage) + nrow(zqimageurl) + 
+  nrow(zqurl) + nrow(g) + nrow(zqtext) - nrow(rubsett)
+```
+
+Having categorized each tweet, we now need to count up who posted what and pull it all together.
+```{r, message=FALSE, warning=FALSE}
+#lets combine all of these into a table that tells us how many each of our targeted users tweeted.
+rubsett1 <- as.data.frame(unique(rubsett$screen_name))
+colnames(rubsett1)[1] <- "screen_name"
+zqimage <-  dplyr::count(zqimage, screen_name)
+zqimageurl = dplyr::count(zqimageurl, screen_name)
+zqvideo = dplyr::count(zqvideo, screen_name)
+zqvideourl = dplyr::count(zqvideourl, screen_name) 
+zqurl = dplyr::count(zqurl, screen_name)
+zqtext = dplyr::count(zqtext, screen_name)
+g = dplyr::count(g, screen_name)
+fin <- Reduce(function(...) merge(..., by='screen_name', all.x=TRUE), list(rubsett1,zqimage,zqimageurl,
+                                                                    zqvideo,zqvideourl,zqurl,zqtext, g))
+colnames(fin) <- c("screen_name", "images", "image urls", "videos", "video urls", "urls", "text", "other")
+totstat <- left_join(rublist, fin)
+totstat[is.na(totstat)] <- 0
+
+#we need to add in information about what level of government each user belogns to. I originalyl did this in Excel, but
+# I generated rublist by the grouping, so we can handcode it without too much issue... mostly.
+totstat$Grouping <- NA
+totstat[1:13,]$Grouping <- "Federal"
+totstat[14:18,]$Grouping <- "State"
+totstat[19:25,]$Grouping <- "Local, Mayor"
+totstat[26:33,]$Grouping <- "Local, City/County"
+totstat[34:47,]$Grouping <- "Local, Congress"
+totstat[48,]$Grouping <- "Local, Health"
+totstat[49:53,]$Grouping <- "Local, Emergency Management"
+totstat$GeneralizedGrouping <- NA
+totstat[1:13,]$GeneralizedGrouping <- "Federal"
+totstat[14:18,]$GeneralizedGrouping <- "State"
+totstat[19:53,]$GeneralizedGrouping <- "Local"
+
+```
