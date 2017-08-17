@@ -25,11 +25,12 @@ twitlist <- function(listowner, listname){
 #  apply(df, 1, twitlist, arg1 = df$owner, arg2 = df$list)}
 #a <- mapply(twitlist, paste0(twitlists[1]), paste0(twitlists[2]))
 
-a <- NULL
-for (i in 1:length(twitlists$X1)) {
-  b <- twitlist(twitlists[i,1], twitlists[i,2])
-  a <- rbind(b,a)}
+#a <- NULL
+#for (i in 1:length(twitlists$X1)) {
+#  b <- twitlist(twitlists[i,1], twitlists[i,2])
+#  a <- rbind(b,a)}
 
+#gets a list of the users that someone follows.  doesn't work for private accounts
 getfriendslist <- function(handl) {
   tempname <- deparse(substitute(handl))
   user <- getUser(tempname)
@@ -37,10 +38,12 @@ getfriendslist <- function(handl) {
   friends.names <- sapply(friends,name)
   friends.screennames <- sapply(friends, screenName)
   friends <- data.frame(friends.screennames, friends.names)
-  tempname <-  paste(tempname, "_friends", sep = "")
-  assign(tempname, friends, envir = globalenv())
+  #tempname <-  paste(tempname, "_friends", sep = "")
+  #assign(tempname, friends, envir = globalenv())
+  return(friends)
 }
 
+#gets a lsit of the users that follow someone.  doesn't work for private accounts
 getfollowerslist <- function(handl) {
   tempname <- deparse(substitute(handl))
   # user <- getUser(tempname)
@@ -48,25 +51,29 @@ getfollowerslist <- function(handl) {
   followers.names <- sapply(followers,name)
   followers.screennames <- sapply(followers, screenName)
   followers <- data.frame(followers.screennames, followers.names)
-  tempname <-  paste(tempname, "_followers", sep = "")
-  assign(tempname, followers, envir = globalenv())
+  #tempname <-  paste(tempname, "_followers", sep = "")
+  #assign(tempname, followers, envir = globalenv())
+  return(followers)
 }
 
+#counts the number of tweets, retweets, and mentions of each handle(handl) in target data.frame (df)
+#retweeting a user counts as mentioning them, so their handle appears in both fields. as such, we subtract
+#the number of retweets from the number of mentions.
 countstats <- function(handl, df) {
   
   if(is.character(handl) == TRUE && length(handl) == 1){
     z <- deparse(substitute(handl))
-    a <- nrow(df[grep(paste0("\\b",noquote(z),"\\b"), df$screen_name, ignore.case = T), ])
-    b <- nrow(df[grep(paste0("\\b",noquote(z),"\\b"), df$rt_screen_name, ignore.case = T), ])
-    c <- nrow(df[grep(paste0("\\b",noquote(z),"\\b"), df$mentioned_users, ignore.case = T), ])
+    a <- nrow(df[grep(paste0("\\b",handl,"\\b"), df$screen_name, ignore.case = T), ])
+    b <- nrow(df[grep(paste0("\\b",handl,"\\b"), df$rt_screen_name, ignore.case = T), ])
+    c <- nrow(df[grep(paste0("\\b",handl,"\\b"), df$mentioned_users, ignore.case = T), ])
     c <- c - b
-    cat(paste(z, " - tweets:", a, ", retweets: ", b, ", mentions: ", c - b))
+    cat(paste(z, " - tweets:", a, ", retweets: ", b, ", mentions: ", c))
     returndf <- data.frame(noquote(handl), a, b, c)
     return(returndf)
   }
   
   else {
- 
+    
     handl <- as.data.frame(handl)
     handl$tweets <- 0
     handl$retweets <- 0
@@ -77,11 +84,10 @@ countstats <- function(handl, df) {
       handl[i,3] <- nrow(df[grep(paste0("\\b",noquote(handl[[i,1]]),"\\b"), df$rt_screen_name, ignore.case = T), ])
       c <- nrow(df[grep(paste0("\\b",noquote(handl[[i,1]]),"\\b"), df$mentioned_users, ignore.case = T), ])
       handl[i,4] <- c - handl[i,3]
-
+      
     }
     colnames(handl)[1] <- "screen_name"
     return(handl)
-    
   }
   #handl <- handl
   #df <- df

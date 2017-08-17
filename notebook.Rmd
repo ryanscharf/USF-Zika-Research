@@ -1,0 +1,356 @@
+---
+title: "R Notebook"
+output:
+  html_notebook: default
+  html_document: default
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+## Libraries
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+library(plyr)
+library(ggplot2)
+library(ggthemes)
+library(Cairo)
+library(tidyr)
+library(igraph)
+library(rgexf)
+library(maptools)
+library(rgeos)
+library(rgdal)
+library(broom)
+library(grid)
+library(gridExtra)
+library(twitteR)
+library(rjson)
+library(httr)
+```
+Our parsed tweets are separated, by day, into 28 .json files.  In order to use our parsing function, we need to concatenate them into a single object.
+
+## Importing and Cleanup
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+#initial R script to parse 
+#streaming twitter API
+#Thomas Keller
+#thomas.e.keller@gmail.com
+
+#code and parser based off streamR parseTweets function
+#https://github.com/pablobarbera/streamR/blob/master/streamR/R/parseTweets.R
+
+#helper function not meant for the light of day
+#breaks out list columns of tweets
+
+
+
+unlistWithNA <- function(lst, field){
+  if (length(field)==1){
+    notnulls <- unlist(lapply(lst, function(x) !is.null(x[[field]])))
+    vect <- rep(NA, length(lst))
+    vect[notnulls] <- unlist(lapply(lst[notnulls], '[[', field))
+  }
+  if (length(field)==2){
+    notnulls <- unlist(lapply(lst, function(x) !is.null(x[[field[1]]][[field[2]]])))
+    vect <- rep(NA, length(lst))
+    vect[notnulls] <- unlist(lapply(lst[notnulls], function(x) x[[field[1]]][[field[2]]]))
+  }
+  if (length(field)==3 & field[1]!="geo"){
+    notnulls <- unlist(lapply(lst, function(x) !is.null(x[[field[1]]][[field[2]]][[field[3]]])))
+    vect <- rep(NA, length(lst))
+    vect[notnulls] <- unlist(lapply(lst[notnulls], function(x) x[[field[1]]][[field[2]]][[field[3]]]))
+  }
+  if (field[1]=="geo"){
+    notnulls <- unlist(lapply(lst, function(x) !is.null(x[[field[1]]][[field[2]]])))
+    vect <- rep(NA, length(lst))
+    vect[notnulls] <- unlist(lapply(lst[notnulls], function(x) x[[field[1]]][[field[2]]][[as.numeric(field[3])]]))
+  }
+  
+  if (length(field)==4 && field[2]!="urls"){
+    notnulls <- unlist(lapply(lst, function(x) length(x[[field[1]]][[field[2]]][[field[3]]][[field[4]]])>0))
+    vect <- rep(NA, length(lst))
+    vect[notnulls] <- unlist(lapply(lst[notnulls], function(x) x[[field[1]]][[field[2]]][[field[3]]][[field[4]]]))
+  }
+  if (length(field)==4 && field[2]=="urls"){
+    notnulls <- unlist(lapply(lst, function(x) length(x[[field[1]]][[field[2]]])>0))
+    vect <- rep(NA, length(lst))
+    vect[notnulls] <- unlist(lapply(lst[notnulls], function(x) x[[field[1]]][[field[2]]][[as.numeric(field[3])]][[field[4]]]))
+  }
+  if (length(field)==6 && field[2]=="bounding_box"){
+    notnulls <- unlist(lapply(lst, function(x) length(x[[field[1]]][[field[2]]])>0))
+    vect <- rep(NA, length(lst))
+    vect[notnulls] <- unlist(lapply(lst[notnulls], function(x) 
+      x[[field[1]]][[field[2]]][[field[3]]][[as.numeric(field[4])]][[as.numeric(field[5])]][[as.numeric(field[6])]]))
+  }
+  return(vect)
+}
+
+#small extra functions to parse the two more complicated fields that return lists themselves...user mentions
+#right now merging into a single string with ";" as a separator
+parse_user=function(user_mentions){
+  num_mention=length(user_mentions)
+  if(num_mention==0){return(NA)}
+  else if(num_mention==1){
+    return(user_mentions[[1]]$screen_name) 
+  }
+  else{return(paste(sapply(1:length(user_mentions),function(x) user_mentions[[x]]$screen_name),collapse=';'))}
+}
+
+parse_id=function(user_mentions){
+  num_mention=length(user_mentions)
+  if(num_mention==0){return(NA)}
+  else if(num_mention==1){
+    return(user_mentions[[1]]$id_str) 
+  }
+  else{return(paste(sapply(1:length(user_mentions),function(x)
+    user_mentions[[x]]$id_str),collapse=';'))}
+}
+
+parse_hash=function(hashtags){
+  num_hash=length(hashtags)
+  if(num_hash==0){return(NA)}
+  else if(num_hash==1){
+    return(hashtags[[1]]$text) 
+  }
+  else{return(paste(sapply(1:length(hashtags),function(x)
+    hashtags[[x]]$text),collapse=';'))}
+}
+
+parse_media_type=function(media){
+  num_media=length(media)
+  if(num_media==0){return(NA)}
+  else if(num_media==1){
+    return(media[[1]]$type) 
+  }
+  else{return(paste(sapply(1:length(media),function(x)
+    media[[x]]$type),collapse=';'))}
+}
+
+parse_media_url=function(media){
+  num_media=length(media)
+  if(num_media==0){return(NA)}
+  else if(num_media==1){
+    return(media[[1]]$expanded_url) 
+  }
+  else{return(paste(sapply(1:length(media),function(x)
+    media[[x]]$expanded_url),collapse=';'))}
+}
+
+######### 
+#main parser
+#code
+########
+
+
+library(streamR)
+
+parseTweets_mod=function(jsonfile){
+  tweet_list=readTweets(jsonfile)
+  tot_tweet=length(tweet_list)
+  tweet_list=lapply(tweet_list, function(x) if(x$lang=='en' & x$user$followers_count>=25 & x$user$friends_count>=100 ) return(x))
+  tweet_list=tweet_list[!sapply(tweet_list,is.null)] # culls out the nulled elements
+  #reweet=lapply(tweet_list,function(x) if(is.null(x$retweeted_status)==TRUE) return(NULL) else(return(x)))
+  #retweet=retweet[!sapply(retweet,is.null)]
+  #print(paste('After simple spam filtering',length(tweet_list),'tweets remain' , 100*length(tweet_list)/tot_tweet,'%'))
+  place_lat_1 = unlistWithNA(tweet_list, c('place', 'bounding_box', 'coordinates', 1, 1, 2))
+  place_lat_2 = unlistWithNA(tweet_list, c('place', 'bounding_box', 'coordinates', 1, 2, 2)) 
+  place_lat = sapply(1:length(tweet_list), function(x) 
+    mean(c(place_lat_1[x], place_lat_2[x]), na.rm=TRUE))
+  place_lon_1 = unlistWithNA(tweet_list, c('place', 'bounding_box', 'coordinates', 1, 1, 1))
+  place_lon_2 = unlistWithNA(tweet_list, c('place', 'bounding_box', 'coordinates', 1, 3, 1))
+  place_lon = sapply(1:length(tweet_list), function(x) 
+    mean(c(place_lon_1[x], place_lon_2[x]), na.rm=TRUE))
+  
+  mentions=lapply(1:length(tweet_list),function(x) tweet_list[[x]]$entities$user_mentions)
+  hashes=lapply(1:length(tweet_list),function(x) tweet_list[[x]]$entities$hash)
+  media=lapply(1:length(tweet_list),function(x) tweet_list[[x]]$entities$media)
+  parsed_user=sapply(1:length(mentions), function(x) parse_user(mentions[[x]]))
+  parsed_id=sapply(1:length(mentions), function(x) parse_id(mentions[[x]]))
+  parsed_hash=sapply(1:length(hashes),function(x) parse_hash(hashes[[x]]))
+  parsed_media_type=sapply(1:length(media),function(x) parse_media_type(media[[x]]))
+  parsed_media_url=sapply(1:length(media),function(x) parse_media_url(media[[x]]))
+  text=sapply(tweet_list, function(x) ifelse(is.null(x$retweeted_status), x$text, x$retweeted_status$text))
+  timestamp_ms = unlistWithNA(tweet_list, 'timestamp_ms')
+  datetime =as.POSIXct(as.numeric(as.character(timestamp_ms))/1000, origin='1970-01-01',tz='EST')
+  df=data.frame(
+    timestamp_ms = timestamp_ms,
+    datetime=datetime,
+    tweet_id = unlistWithNA(tweet_list, "id_str"),
+    text=iconv(text,to='UTF-8', sub = "byte"), 
+    retweet_count = unlistWithNA(tweet_list, c('retweeted_status','retweet_count')),
+    favorite_count = unlistWithNA(tweet_list, c('retweeted_status','favorite_count')),
+    expanded_url = unlistWithNA(tweet_list, c('entities', 'urls', 1, 'expanded_url')),
+    friends_count = unlistWithNA(tweet_list, c('user', 'friends_count')),
+    screen_name = unlistWithNA(tweet_list, c('user', 'screen_name')),
+    user_id_str = unlistWithNA(tweet_list, c('user', 'id_str')),
+    in_reply_to_screen_name = unlistWithNA(tweet_list, ('in_reply_to_screen_name')),
+    in_reply_to_user_id = unlistWithNA(tweet_list, ('in_reply_to_user_id_str')),
+    rt_screen_name = unlistWithNA(tweet_list,c('retweeted_status','user','screen_name')),
+    rt_screen_id = unlistWithNA(tweet_list,c('retweeted_status','user','id_str')),
+    country = unlistWithNA(tweet_list, c('place', 'country')),
+    full_name = unlistWithNA(tweet_list, c('place', 'full_name')),
+    followers_count = unlistWithNA(tweet_list, c('user', 'followers_count')),
+    #place_lat_1 = unlistWithNA(tweet_list, c('place', 'bounding_box', 'coordinates', 1, 1, 2)),
+    #place_lat_2 = unlistWithNA(tweet_list, c('place', 'bounding_box', 'coordinates', 1, 2, 2)),
+    place_lat = sapply(1:length(tweet_list), function(x) 
+      mean(c(place_lat_1[x], place_lat_2[x]), na.rm=TRUE)),
+    #place_lon_1 = unlistWithNA(tweet_list, c('place', 'bounding_box', 'coordinates', 1, 1, 1)),
+    #place_lon_2 = unlistWithNA(tweet_list, c('place', 'bounding_box', 'coordinates', 1, 3, 1)),
+    place_lon = sapply(1:length(tweet_list), function(x) 
+      mean(c(place_lon_1[x], place_lon_2[x]), na.rm=TRUE)),
+    lat = unlistWithNA(tweet_list, c('geo', 'coordinates', 1)),
+    lon = unlistWithNA(tweet_list, c('geo', 'coordinates', 2)),
+    mentioned_users=parsed_user,
+    mentioned_id=parsed_id,
+    hashes=parsed_hash,
+    parsed_media_type=parsed_media_type,
+    parsed_media_url=parsed_media_url,
+    stringsAsFactors=F
+  )
+  return(df)
+}
+```
+
+```{r, message=FALSE, warning=FALSE}
+#import a list of directories for the .jsons
+dirs <- list.dirs('~/zika/USF-Zika-Research/raw month', recursive=FALSE)
+#append the file to the end of each directory
+dirs <- paste(dirs, "/data.txt", sep="")
+#apply the parse function to the list of files
+parsed30d <- suppressMessages(lapply(dirs, parseTweets_mod))
+#turns the list of data frames into one data frame
+parsed30d <- bind_rows(parsed30d)
+
+```
+
+The data has a few quirks and issues that need to be cleaned up.  Counts for tweets that haven't been retweeted or favorited have no value (NA), and need to be set to 0.  Additionally, there are a number of tweets with duplicate IDs that we will toss. We also add a cleaner version of the date/time format to make it easier to group tweets by their date.
+```{r, message=FALSE, warning=FALSE}
+#turning NAs to 0s for favorite count and retweet count
+parsed30d$retweet_count[is.na(parsed30d$retweet_count)] <- 0
+parsed30d$favorite_count[is.na(parsed30d$favorite_count)] <- 0
+
+#get rid of duplicate tweetids, 266 duplicate tweet_ids
+dup30 <- plyr::count(parsed30d$tweet_id)
+dup30 <- dup30[dup30$freq > 1, ]
+parsed30d <- parsed30d[!(parsed30d$tweet_id %in% dup30$x), ]
+
+#cleaning up the date field
+parsed30d$cleandate <- strptime(parsed30d$datetime, "%Y-%m-%d %H:%M:%S")
+parsed30d$cleandate <- format(parsed30d$cleandate, "%Y-%m-%d")
+parsed30d$cleandate <- as.Date(parsed30d$cleandate)
+```
+
+## A Quick Visual Exploration
+Let's try to take a quick look at the data to see if there is much to take note of.
+```{r,dev='CairoPNG',dpi=300}
+flddates <- plyr::count(parsed30d$cleandate)
+ggplot(flddates, aes(x=x, y = freq, group = 1)) + geom_line() + labs(x = "Date", y = "Number of Tweets") + ggtitle("Number of Tweets Per Day") + scale_x_date(date_labels = "%b %d", date_breaks = "1 day", expand = c(0,0)) + theme_few() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 12), axis.text.y = element_text(size = 12), panel.grid.major = element_line(color = "grey", size = .25))
+```
+
+Here is the graph for the number of tweets per day.  As you can see, there are two very large spikes in tweet frequecny during the middle of our collection.  These coincide with the first case of Zika being found in a mosquito in Miami on September 1st, and the Senate failing to pass funding legislation to help fight Zika on September 6th.  Some other major developments on those days were Malaysia confirming their first case of Zika (Sept 1st) and the WHO expanding their Zika sex guidelines (Sept 6th).
+
+```{r,dev='CairoPNG',dpi=300}
+ggplot(flddates, aes(x = as.character(x), y = 100*cumsum(freq)/sum(freq), group = 1)) +  geom_line() + labs(x = "Date", y = "Percentage of Total (%)") + ggtitle("Cumulative Sum of Tweets (%) w/ Mean") + scale_x_discrete(labels = format.Date(flddates$x, "%b %d") ,expand = c(0,0)) + theme_few() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 12), axis.text.y = element_text(size = 12), panel.grid.major = element_line(color = "grey", size = .25)) #+ geom_abline(intercept = 0, slope = 100/length(flddates$x), color = "blue")
+```
+In this graph, we can see the progression of the cumulative sums of tweets as time progresses.  The humps around September 1st and 6th are again present.  You can also see that, after September 7th, the discussion slows down greatly.
+
+Let's see how much of the discussion about Zika includes officials from some of Florida's most populous counties: Miami-Dade, Broward, and Orange County.  
+
+## Creating Functions for Scrapign User Data
+
+```{r}
+#you need an api key from twitter from https://apps.twitter.com/app/
+setup_twitter_oauth("")
+
+#this is a function to parse the names and twitter handles of people on a twitter list.
+#listowner = handle of the user that made the list; listname = the name of the list.
+twitlist <- function(listowner, listname){
+  
+  #the twitter api limits the rate at which you can make requests.  refer to https://dev.twitter.com/rest/public/rate-limits
+  api.url <- paste0("https://api.twitter.com/1.1/lists/members.json?slug=",
+                    listname, "&owner_screen_name=", listowner, "&count=5000")
+  response <- GET(api.url, config(token=twitteR:::get_oauth_sig()))
+  
+  response.list <- fromJSON(content(response, as = "text", encoding = "UTF-8"))
+  
+  users.names <- sapply(response.list$users, function(i) i$name)
+  users.screennames <- sapply(response.list$users, function(i) i$screen_name)
+  
+  return(data.frame(users.screennames, users.names))
+}
+
+#a <- NULL
+#for (i in 1:length(twitlists$X1)) {
+#  b <- twitlist(twitlists[i,1], twitlists[i,2])
+#  a <- rbind(b,a)}
+
+#gets a list of the users that someone follows.  doesn't work for private accounts
+getfriendslist <- function(handl) {
+  tempname <- deparse(substitute(handl))
+  user <- getUser(tempname)
+  #friends <- lookupUsers(user$getFriendIDs())
+  friends.names <- sapply(friends,name)
+  friends.screennames <- sapply(friends, screenName)
+  friends <- data.frame(friends.screennames, friends.names)
+  #tempname <-  paste(tempname, "_friends", sep = "")
+  #assign(tempname, friends, envir = globalenv())
+  return(friends)
+}
+
+#gets a lsit of the users that follow someone.  doesn't work for private accounts
+getfollowerslist <- function(handl) {
+  tempname <- deparse(substitute(handl))
+  # user <- getUser(tempname)
+  followers <- lookupUsers(user$getFollowers())
+  followers.names <- sapply(followers,name)
+  followers.screennames <- sapply(followers, screenName)
+  followers <- data.frame(followers.screennames, followers.names)
+  #tempname <-  paste(tempname, "_followers", sep = "")
+  #assign(tempname, followers, envir = globalenv())
+  return(followers)
+}
+
+#counts the number of tweets, retweets, and mentions of each handle(handl) in target data.frame (df)
+#retweeting a user counts as mentioning them, so their handle appears in both fields. as such, we subtract
+#the number of retweets from the number of mentions.
+#you can pass in either a single handle (e.g. "WhiteHouse"), or a list of handles (e.g. c("WhiteHouse", "POTUS")).
+countstats <- function(handl, df) {
+  
+  if(is.character(handl) == TRUE && length(handl) == 1){
+    z <- deparse(substitute(handl))
+    a <- nrow(df[grep(paste0("\\b",noquote(z),"\\b"), df$screen_name, ignore.case = T), ])
+    b <- nrow(df[grep(paste0("\\b",noquote(z),"\\b"), df$rt_screen_name, ignore.case = T), ])
+    c <- nrow(df[grep(paste0("\\b",noquote(z),"\\b"), df$mentioned_users, ignore.case = T), ])
+    c <- c - b
+    cat(paste(z, " - tweets:", a, ", retweets: ", b, ", mentions: ", c))
+    returndf <- data.frame(noquote(handl), a, b, c)
+    return(returndf)
+  }
+  
+  else {
+ 
+    handl <- as.data.frame(handl)
+    handl$tweets <- 0
+    handl$retweets <- 0
+    handl$mentions <- 0
+    
+    for(i in 1:nrow(handl)){
+      handl[i,2] <- nrow(df[grep(paste0("\\b",noquote(handl[[i,1]]),"\\b"), df$screen_name, ignore.case = T), ])
+      handl[i,3] <- nrow(df[grep(paste0("\\b",noquote(handl[[i,1]]),"\\b"), df$rt_screen_name, ignore.case = T), ])
+      c <- nrow(df[grep(paste0("\\b",noquote(handl[[i,1]]),"\\b"), df$mentioned_users, ignore.case = T), ])
+      handl[i,4] <- c - handl[i,3]
+
+    }
+    colnames(handl)[1] <- "screen_name"
+    return(handl)
+  }
+}
+```
+
