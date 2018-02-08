@@ -1,27 +1,24 @@
 ---
-title: "R Notebook"
+title: "USF Twitter Research"
 output:
-  html_notebook: default
-  html_document: default
+  html_notebook
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+## Introduction
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+From August 25, 2016 to September 21, 2016, we collected tweets that were related to the Zika outbreak.  This data was used for multiple papers relating to the usage of multimedia in tweets, government Twitter interactions during times of crisis, and identifying influential actors in propogating health information.  Because the data was used for so many different things, this notebook will be more of a quick retrospective of some of the things I did rather than a comprehensive log of everything that was done.
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+This is also my first R notebook, so there might be some quirks in formatting will arise while I knit to html.
 
 ## Libraries
 
 ```{r, message=FALSE, warning=FALSE}
-library(dplyr)
 library(plyr)
-library(ggplot2)
+library(tidyverse)
 library(ggthemes)
+library(viridis)
 library(Cairo)
-library(tidyr)
 library(igraph)
 library(rgexf)
 library(maptools)
@@ -33,11 +30,14 @@ library(gridExtra)
 library(twitteR)
 library(rjson)
 library(httr)
+library(DT) 
 ```
-Our parsed tweets are separated, by day, into 28 .json files.  In order to use our parsing function, we need to concatenate them into a single object.
 
 ## Importing and Cleanup
-```{r, message=FALSE, warning=FALSE, include=FALSE}
+
+Our parsed tweets are separated, by day, into 28 .json files.  In order to use our parsing function, we need to concatenate them into a single object.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 #initial R script to parse 
 #streaming twitter API
 #Thomas Keller
@@ -218,7 +218,7 @@ parseTweets_mod=function(jsonfile){
 }
 ```
 
-```{r, message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE}
 #import a list of directories for the .jsons
 dirs <- list.dirs('~/zika/USF-Zika-Research/raw month', recursive=FALSE)
 #append the file to the end of each directory
@@ -237,7 +237,7 @@ parsed30d$retweet_count[is.na(parsed30d$retweet_count)] <- 0
 parsed30d$favorite_count[is.na(parsed30d$favorite_count)] <- 0
 
 #get rid of duplicate tweetids, 266 duplicate tweet_ids
-dup30 <- plyr::count(parsed30d$tweet_id)
+dup30 <- count(parsed30d, tweet_id)
 dup30 <- dup30[dup30$freq > 1, ]
 parsed30d <- parsed30d[!(parsed30d$tweet_id %in% dup30$x), ]
 
@@ -250,14 +250,14 @@ parsed30d$cleandate <- as.Date(parsed30d$cleandate)
 ## A Quick Visual Exploration
 Let's try to take a quick look at the data to see if there is much to take note of.
 ```{r,dev='CairoPNG',dpi=300}
-flddates <- plyr::count(parsed30d$cleandate)
-ggplot(flddates, aes(x=x, y = freq, group = 1)) + geom_line() + labs(x = "Date", y = "Number of Tweets") + ggtitle("Number of Tweets Per Day") + scale_x_date(date_labels = "%b %d", date_breaks = "1 day", expand = c(0,0)) + theme_few() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 12), axis.text.y = element_text(size = 12), panel.grid.major = element_line(color = "grey", size = .25))
+flddates <- count(parsed30d, cleandate)
+ggplot(flddates, aes(x=cleandate, y = n, group = 1)) + geom_line() + labs(x = "Date", y = "Number of Tweets") + ggtitle("Number of Tweets Per Day") + scale_x_date(date_labels = "%b %d", date_breaks = "1 day", expand = c(0,0)) + theme_few() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 12), axis.text.y = element_text(size = 12), panel.grid.major = element_line(color = "grey", size = .25))
 ```
 
 Here is the graph for the number of tweets per day.  As you can see, there are two very large spikes in tweet frequecny during the middle of our collection.  These coincide with the first case of Zika being found in a mosquito in Miami on September 1st, and the Senate failing to pass funding legislation to help fight Zika on September 6th.  Some other major developments on those days were Malaysia confirming their first case of Zika (Sept 1st) and the WHO expanding their Zika sex guidelines (Sept 6th).
 
 ```{r,dev='CairoPNG',dpi=300}
-ggplot(flddates, aes(x = as.character(x), y = 100*cumsum(freq)/sum(freq), group = 1)) +  geom_line() + labs(x = "Date", y = "Percentage of Total (%)") + ggtitle("Cumulative Sum of Tweets (%) w/ Mean") + scale_x_discrete(labels = format.Date(flddates$x, "%b %d") ,expand = c(0,0)) + theme_few() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 12), axis.text.y = element_text(size = 12), panel.grid.major = element_line(color = "grey", size = .25)) #+ geom_abline(intercept = 0, slope = 100/length(flddates$x), color = "blue")
+ggplot(flddates, aes(x = as.character(cleandate), y = 100*cumsum(n)/sum(n), group = 1)) +  geom_line() + labs(x = "Date", y = "Percentage of Total (%)") + ggtitle("Cumulative Sum of Tweets (%) w/ Average Rate of Tweets") + scale_x_discrete(labels = format.Date(flddates$cleandate, "%b %d") ,expand = c(0,0)) + theme_few() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 12), axis.text.y = element_text(size = 12), panel.grid.major = element_line(color = "grey", size = .25)) + geom_abline(intercept = 0, slope = 100/length(flddates$cleandate), color = "blue")
 ```
 In this graph, we can see the progression of the cumulative sums of tweets as time progresses.  The humps around September 1st and 6th are again present.  You can also see that, after September 7th, the discussion slows down greatly.
 
@@ -265,10 +265,11 @@ Let's see how much of the discussion about Zika includes officials from some of 
 
 ## Creating Functions for Scraping User Data
 In order to scrape data and calculate some metrics easily, we can make a few functions.  We will create functions to parse a user's custom list of other users, to parse a the accounts that a user follows, to parse the accounts that follow a user, and to count number of tweets, retweets, and mentions for a user.
-```{r}
+```{r eval=FALSE, include=FALSE}
 #you need an api key from twitter from https://apps.twitter.com/app/
 setup_twitter_oauth("")
-
+```
+```{r}
 #this is a function to parse the names and twitter handles of people on a twitter list.
 #listowner = handle of the user that made the list; listname = the name of the list.
 twitlist <- function(listowner, listname){
@@ -365,7 +366,8 @@ countstats(c("WhiteHouse", "POTUS", "BarackObama"), parsed30d)
 
 From here, we can make a more comprehensive list to target.  I had originally made the list in Excel and exported the .csv, but here's the R script to make it easier to follow along:
 ```{r, echo=TRUE}
-rublist <- c("WhiteHouse", "POTUS", "BarackObama", "HHSGov", "SecSebelius", "CDCtravel", "CDC_NCBDDD", "CDCGlobal", "CDCgov", "CDCemergency", "CDC_NCEZID", "CDCChronic", "CDCMMWR", "marcorubio", "senrubiopress", "SenBillNelson", "FLGovScott", "HealthyFla","MayorGimenez", "Tomas_Regalado", "Mayor_Jacobs", "orlandomayor", "JackSeiler", "MartyKiar", "jmuoio", "MiamiDadeCounty", "pbcgov", "BrowardCounty", "OrangeCoFL", "CityofMiami", "citybeautiful", "ftlcitynews", "westpalmbch", "repstephmurphy", "congbillposey", "RepDarrenSoto", "RepValDemings", "RepBrianMast", "RepHastingsFL", "RepLoisFrankel", "RepTedDeutch", "DWStweets", "RepDWStweets", "RepWilson", "MarioDB", "RepCurbelo", "RosLehtinen", "FLHealthBroward", "orloem", "MiamiDEM", "readybroward", "pbcdem", "miamidadeem")
+#in regards to the naming convention from here on out: We started off looking at Marco Rubio, so the list was named rublist. The project evolved away from solely looking at Rubio, but the legacy naming convention stuck around.
+rublist <- c("WhiteHouse", "POTUS", "BarackObama", "HHSGov", "SecSebelius", "DrFriedenCDC", "CDCtravel", "CDC_NCBDDD", "CDCGlobal", "CDCgov", "CDCemergency", "CDC_NCEZID", "CDCChronic", "CDCMMWR", "marcorubio", "SenRubioPress", "SenBillNelson", "FLGovScott", "HealthyFla","MayorGimenez", "Tomas_Regalado", "Mayor_Jacobs", "orlandomayor", "JackSeiler", "MartyKiar", "jmuoio", "MiamiDadeCounty", "pbcgov", "BrowardCounty", "OrangeCoFL", "CityofMiami", "citybeautiful", "ftlcitynews", "westpalmbch", "repstephmurphy", "congbillposey", "RepDarrenSoto", "RepValDemings", "RepBrianMast", "RepHastingsFL", "RepLoisFrankel", "RepTedDeutch", "DWStweets", "RepDWStweets", "RepWilson", "MarioDB", "RepCurbelo", "RosLehtinen", "FLHealthBroward", "orloem", "MiamiDEM", "readybroward", "pbcdem", "MiamiDadeEM")
 rublist <- countstats(rublist, parsed30d)
 #checking the output
 head(rublist)
@@ -416,13 +418,13 @@ Having categorized each tweet, we now need to count up who posted what and pull 
 #lets combine all of these into a table that tells us how many each of our targeted users tweeted.
 rubsett1 <- as.data.frame(unique(rubsett$screen_name))
 colnames(rubsett1)[1] <- "screen_name"
-zqimage <-  dplyr::count(zqimage, screen_name)
-zqimageurl = dplyr::count(zqimageurl, screen_name)
-zqvideo = dplyr::count(zqvideo, screen_name)
-zqvideourl = dplyr::count(zqvideourl, screen_name) 
-zqurl = dplyr::count(zqurl, screen_name)
-zqtext = dplyr::count(zqtext, screen_name)
-g = dplyr::count(g, screen_name)
+zqimage <-  count(zqimage, screen_name)
+zqimageurl = count(zqimageurl, screen_name)
+zqvideo = count(zqvideo, screen_name)
+zqvideourl = count(zqvideourl, screen_name) 
+zqurl = count(zqurl, screen_name)
+zqtext = count(zqtext, screen_name)
+g = count(g, screen_name)
 fin <- Reduce(function(...) merge(..., by='screen_name', all.x=TRUE), list(rubsett1,zqimage,zqimageurl,
                                                                     zqvideo,zqvideourl,zqurl,zqtext, g))
 colnames(fin) <- c("screen_name", "images", "image urls", "videos", "video urls", "urls", "text", "other")
@@ -432,16 +434,199 @@ totstat[is.na(totstat)] <- 0
 #we need to add in information about what level of government each user belogns to. I originalyl did this in Excel, but
 # I generated rublist by the grouping, so we can handcode it without too much issue... mostly.
 totstat$Grouping <- NA
-totstat[1:13,]$Grouping <- "Federal"
-totstat[14:18,]$Grouping <- "State"
-totstat[19:25,]$Grouping <- "Local, Mayor"
-totstat[26:33,]$Grouping <- "Local, City/County"
-totstat[34:47,]$Grouping <- "Local, Congress"
-totstat[48,]$Grouping <- "Local, Health"
-totstat[49:53,]$Grouping <- "Local, Emergency Management"
+totstat[1:14,]$Grouping <- "Federal"
+totstat[15:19,]$Grouping <- "State"
+totstat[20:26,]$Grouping <- "Local, Mayor"
+totstat[27:34,]$Grouping <- "Local, City/County"
+totstat[35:48,]$Grouping <- "Local, Congress"
+totstat[49,]$Grouping <- "Local, Health"
+totstat[50:54,]$Grouping <- "Local, Emergency Management"
 totstat$GeneralizedGrouping <- NA
-totstat[1:13,]$GeneralizedGrouping <- "Federal"
-totstat[14:18,]$GeneralizedGrouping <- "State"
-totstat[19:53,]$GeneralizedGrouping <- "Local"
+totstat[1:14,]$GeneralizedGrouping <- "Federal"
+totstat[15:19,]$GeneralizedGrouping <- "State"
+totstat[20:54,]$GeneralizedGrouping <- "Local"
 
+#adding in follower count for each account.  Note: Users who didn't tweet won't have information for us to pull
+#followers from
+totstat <- rubsett %>% subset(select = c(screen_name, followers_count, timestamp_ms)) %>%  group_by(screen_name) %>% filter(timestamp_ms == max(timestamp_ms)) %>% left_join(totstat,., by = "screen_name") %>% select(-timestamp_ms)
+
+#we can use datatable() to make a nicer html table
+datatable(totstat)
+```
+
+The last thing we need to do is create a master list that includes all tweets in which one of our actors are either the person who tweeted, the person being retweeted, or one of the people being mentioned.  This will be used for some content analysis.
+```{r}
+rubsetr <- parsed30d[tolower(parsed30d$rt_screen_name) %in% tolower(rublist$screen_name), ]
+rubsetm <- filter(parsed30d, grepl(paste(rublist$screen_name, collapse="|"), mentioned_users))
+rubmaster<- rbind(rbind(rubsetr,rubsetm), rubsett)
+```
+
+Using hashtags are a great way to add emphasis and context to a tweet.  They can act like micro-theses, of sorts, for the tweet.  Twitter also allows users to search for and follow hashtags, making them a good conversation-specific networking.  Let's see how our actors are utilizing hashtags.
+
+```{r}
+#The hashtag field currently contains multiple hashtags, delimited by semicolons.
+#We will start by separating those out into 20 columns.
+rubhash <- separate(rubmaster, col = hashes, into = c("hash1", "hash2", "hash3", 
+                                                 "hash4", "hash5", "hash6", "hash7", "hash8", "hash9", "hash10", "hash11", 
+                                                 "hash12", "hash13", "hash14", "hash15", "hash16", "hash17", "hash18",                                                      "hash19", "hash20"), sep = ";", extra = "merge", fill = "right")
+
+#Capitalization isn't uniform for hashtags (e.g. "Zika" and "zika"), so we'll convert them to lowercase while we tally their frequencies
+rubhashes <- apply(rubhash[,24:43], 2, FUN=function(x) plyr::count(stringi::stri_trans_tolower(x)))
+rubhashes <- do.call(rbind.data.frame, rubhashes)
+rubhashes <- ddply(rubhashes, "x", numcolwise(sum))
+rubhashes <- rubhashes[!is.na(rubhashes[,1]), ]
+rubhashes <- arrange(rubhashes, desc(freq))
+#the 95th percentile of hashes are those that occur 38 times or more.  50 hashtags meet this criteria.
+rubhashes <- filter(rubhashes, freq > 37)
+head(rubhashes)
+```
+
+Now that we know what some of the most popular hashtags are, it might be helpful for us to see how the ebb and flow of hashtags change over time.
+
+```{r}
+#shaping data for a stacked area plot of hashtag ifnormation
+#we're going to grab all of the hashtag colums, plus overshoot to the date, then remove two extraneous colums
+rubhashsap <- rubhash[ ,24:46]
+rubhashsap <- rubhashsap[ ,-c(21:22)]
+#We're only looking for tweets that have hashetags. This includes 29,071 tweets, or about 74% of the tweets that involve our actors.
+rubhashsap <- rubhashsap[!(is.na(rubhashsap$hash1)), ]
+rubhashsap <- as.data.frame(sapply(rubhashsap,tolower))
+
+#making a loop to make the data more managable
+xz <- colnames(rubhashsap)
+rubhashsap1 <- data.frame(rubhashsap$cleandate, rubhashsap$hash1)
+colnames(rubhashsap1) <- c("date", "hashtag")
+
+for(i in 2:20) {
+  tempdf <- data.frame(rubhashsap$cleandate, rubhashsap[[i]])
+  colnames(tempdf) <- c("date", "hashtag")
+  rubhashsap1 <<- rbind(rubhashsap1, tempdf)
+} 
+rm(xz)
+rubhashsap1 <- rubhashsap1[!(is.na(rubhashsap1$hashtag)), ]
+rubhashsap1 <- rubhashsap1 %>% group_by(date, hashtag) %>% tally(wt = NULL)
+rubhashsapc <- spread(rubhashsap1, key = hashtag,  value = n)       #
+rubhashsap1 <- rubhashsap1[rubhashsap1$hashtag %in% rubhashes[1:10,1], ]
+#even the most popular hashtags don't appear every day, which causes holes in graphs, so we need to fill out the 0's
+rubhashsap1<-merge(rubhashsap1,expand.grid(date=unique(rubhashsap1$date),hashtag=unique(rubhashsap1$hashtag),stringsAsFactors=F),all.y=T)
+rubhashsap1$n[is.na(rubhashsap1$n)] <- 0
+rubhashsap1$date <- strptime(rubhashsap1$date, "%Y-%m-%d")
+rubhashsap1$date <- format(rubhashsap1$date, "%m-%d")
+
+```
+
+We saw earlier that the zika hashtag is roughly a full order of magnitude more common than the next most popular hashtag, but stacked area charts can help us see where some other topics are able to take focus.  A 100% stacked area chart can help us see how the market share of each hashtag varies over time, and the normal stacked area chart can help us see, mainly, the overall activity of hashtag usage over time and, secondarily, the constitution of each day's worth of hashtags.
+
+```{r 100 stacked area plot, dev="CairoPNG", dpi=300}
+ggplot(rubhashsap1, aes(x = date, y = n, group = hashtag)) + geom_area(colour="black", size=.4, aes(color = hashtag, fill = hashtag, group = hashtag), position = "fill") + theme_few() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 12), axis.text.y = element_text(size = 12)) +  scale_fill_viridis(option = "plasma", discrete = TRUE) + labs(x = "Date", y = "Percentage of Total") +  ggtitle("100% Stacked Area Chart of the 10 Most Common Hashtags") + scale_y_continuous(labels = scales::percent, expand = c(0,0)) + scale_x_discrete(expand = c(0,0))
+```
+```{r message=FALSE, warning=FALSE, dev="CairoPNG", dpi=300}
+ggplot(rubhashsap1, aes(x = date, y = n, group = hashtag)) + geom_area(colour="black", size=.4, aes(color = hashtag, fill = hashtag, group = hashtag), position = "stack") +  theme_few() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 12), axis.text.y = element_text(size = 12), panel.grid.major = element_line(color = "grey", size = .25)) + scale_fill_viridis(option = "plasma", discrete = TRUE) + labs(x = "Date", y = "Number of Hashtags") +  ggtitle("Stacked Area Chart of the 10 Most Common Hashtags") + scale_y_continuous(breaks = seq(0,1500, by = 200), expand = c(0,0), limits = c(0, 1500)) + scale_x_discrete(expand = c(0,0))
+```
+
+We can see that #zika remains dominant through most of our data capture period, but we also see surges in #atozika, #zapzika, #specialreport, and #flsen.  It's interesting to note that, with the exception of #flsen, those hashtags are mostly used for education and awareness. 
+
+##Geospatial Visualization
+
+The hashtag #sofla, or South Florida, was a popular hashtag since it was ground-zero for Zika in Florida.  We can visualize tweet density by congressional district to see which members of congress talked about the issue the most.  
+
+```{r geospatial, echo=TRUE, message=FALSE, warning=FALSE, dev='CairoPNG', dpi=300}
+#we need to append district information onto totstat1 so that we can merge it with the shapefiles
+congdist <- data.frame(handles = c("repstephmurphy", "congbillposey", "RepDarrenSoto", "RepValDemings", 
+                                             "RepBrianMast", "RepHastingsFL", "RepLoisFrankel", "RepTedDeutch",
+                                             "repDWStweets", "RepWilson", 
+                                             "MarioDB", "RepCurbelo", "RosLehtinen"), 
+                       DISTRICT = c(7, 8, 9, 10, 18, 20, 21, 22, 23, 24, 25, 26, 27))
+totstatd <- left_join(totstat, congdist, by=c("screen_name" = "handles"))
+
+#shape files for the proper congresional districts were found at http://cdmaps.polisci.ucla.edu/
+#you'll need to point  readOGR to wherever you save the shape files to.
+fldist <- rgdal::readOGR("C:/Users/Ryan/Documents/zika/USF-Zika-Research/mapping/districts114.shp")
+fldist <- fldist[fldist@data$STATENAME == "Florida", ]
+fldist@data <- data.frame(fldist@data, totstatd[match(fldist@data$DISTRICT, totstatd$DISTRICT), ])
+fldist <- gBuffer(fldist, byid = T, width = 0)
+fldistm <- broom::tidy(fldist[, 1:15], region = "DISTRICT")
+fldistm$id <- as.numeric(fldistm$id)
+fldistm <- merge(fldistm, fldist@data, by.x = "id", by.y = "DISTRICT")
+
+G1 <- ggplot() + geom_polygon(data = fldistm, aes(long,lat, group = group), fill = "light gray") + 
+  geom_polygon(data = fldistm, aes(long,lat, group = group, fill = tweets), color = "white") + 
+  scale_fill_viridis(option = "plasma") + 
+  coord_map() + theme_map() + 
+  theme(legend.position = "right", legend.text = element_text(size=20)) +
+  guides(fill = guide_colorbar(title.theme = element_text(size = 20, angle = 0)))
+
+G2 <- ggplot() + geom_polygon(data = fldistm, aes(long,lat, group = group), fill = "light gray") + 
+  geom_polygon(data = fldistm, aes(long,lat, group = group, fill = tweets), color = "white") + 
+  scale_fill_viridis(option = "plasma") +
+  coord_map(ylim = c(25,27), xlim = c(-82, -80)) +
+  theme_map() + theme(legend.position="none") + 
+  geom_rect(aes(xmin = -82, xmax = -80, ymin = 25, ymax = 27), size = 1, color = "black", alpha = 0)
+```
+
+Miami-Dade County has a few tiny congressional districts, so we'll add in a zoomed-in viewport to help see them.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE, dev='CairoPNG', dpi=300}
+#grid.newpage()
+print(G1)
+print(G2, vp = viewport(width = 0.6, height = 0.6, x = .3, y = .3))
+```
+```{r echo=TRUE, dev='CairoPNG', dpi=300}
+#retweets
+G1 <- ggplot() + geom_polygon(data = fldistm, aes(long,lat, group = group), fill = "light gray") + 
+  geom_polygon(data = fldistm, aes(long,lat, group = group, fill = retweets), color = "white") + 
+  scale_fill_viridis(option = "plasma") + 
+  coord_map() + theme_map() + 
+  theme(legend.position = "right", legend.text = element_text(size=20)) +
+  guides(fill = guide_colorbar(title.theme = element_text(size = 20, angle = 0)))
+
+G2 <- ggplot() + geom_polygon(data = fldistm, aes(long,lat, group = group), fill = "light gray") + 
+  geom_polygon(data = fldistm, aes(long,lat, group = group, fill = retweets), color = "white") + 
+  scale_fill_viridis(option = "plasma") +
+  coord_map(ylim = c(25,27), xlim = c(-82, -80)) +
+  theme_map() + theme(legend.position="none") + 
+  geom_rect(aes(xmin = -82, xmax = -80, ymin = 25, ymax = 27), size = 1, color = "black", alpha = 0)
+print(G1)
+print(G2, vp = viewport(width = 0.6, height = 0.6, x = .3, y = .3))
+
+#mentions
+G1 <- ggplot() + geom_polygon(data = fldistm, aes(long,lat, group = group), fill = "light gray") + 
+  geom_polygon(data = fldistm, aes(long,lat, group = group, fill = mentions), color = "white") + 
+  scale_fill_viridis(option = "plasma") + 
+  coord_map() + theme_map() + 
+  theme(legend.position = "right", legend.text = element_text(size=20)) +
+  guides(fill = guide_colorbar(title.theme = element_text(size = 20, angle = 0)))
+
+G2 <- ggplot() + geom_polygon(data = fldistm, aes(long,lat, group = group), fill = "light gray") + 
+  geom_polygon(data = fldistm, aes(long,lat, group = group, fill = mentions), color = "white") + 
+  scale_fill_viridis(option = "plasma") +
+  coord_map(ylim = c(25,27), xlim = c(-82, -80)) +
+  theme_map() + theme(legend.position="none") + 
+  geom_rect(aes(xmin = -82, xmax = -80, ymin = 25, ymax = 27), size = 1, color = "black", alpha = 0)
+print(G1)
+print(G2, vp = viewport(width = 0.6, height = 0.6, x = .3, y = .3))
+
+```
+
+Miami-Dade County has a few tiny congressional districts, so we added in a zoomed-in viewport to help see them.  It's interesting to see that, for all of our measures of Twitter activity, the activity is focused around the South Florida/Everglades region.  It's also interesting that, even though we included Palm Beach, Orange, and Seminole Counties, the representatives from the associated districts weren't really active at all despite the fact that Zika is at their doorsteps.
+
+
+We used Gephi to analyze the social network of our actors.  You can make the network with igraph and then write it as a Gephi .gexf file with rgexf.
+
+```{r gephi}
+df_net <- rubmaster[!is.na(rubmaster$rt_screen_name), ]
+
+edges <- data.frame(from=df_net$screen_name, to = df_net$rt_screen_name, stringsAsFactors = F) %>%
+  group_by(from,to) %>% dplyr::summarize(value = n())
+
+nodes <- data.frame(id = unique(c(edges$from, edges$to)),
+                    label = unique(c(edges$from, edges$to)),
+                    stringsAsFactors = F) %>% tbl_df
+
+rt_graph <- make_empty_graph() + vertices(nodes$id) + edges(as.vector(rbind(edges$from, edges$to)), weight = edges$value)
+
+rg.gexf <- igraph.to.gexf(rt_graph)
+f <- file("rubmasterretweets.gexf")
+writeLines(rg.gexf$graph, con = f)
+close(f)
 ```

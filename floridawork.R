@@ -12,6 +12,7 @@ library(rgdal)
 library(broom)
 library(grid)
 library(gridExtra)
+library(viridis)
 
 #import a list of directories for the extracted file
 dirs <- list.dirs('~/zika/USF-Zika-Research/raw month', recursive=FALSE)
@@ -72,7 +73,11 @@ ggplot(flddates, aes(x = x, y = 100*cumsum(freq)/sum(freq), group = 1)) +  geom_
                       panel.grid.major = element_line(color = "grey", size = .25)) + geom_abline(intercept = 0, slope = 100/length(flddates$x), color = "blue")
 ggsave(file = "30dcumsumsmean.png", type="cairo-png")
 
+#
+#
 #start hashtag analysis
+#
+#
 fl30dh <- separate(fl30d, col = hashes, into = c("hash1", "hash2", "hash3", 
                                                  "hash4", "hash5", "hash6", "hash7", "hash8", "hash9", "hash10", "hash11", 
                                                  "hash12", "hash13", "hash14", "hash15", "hash16", "hash17", "hash18", "hash19",
@@ -177,7 +182,7 @@ writeLines(rg.gexf$graph, con = f)
 close(f)
 
 
-#
+#geospatial map
 #http://cdmaps.polisci.ucla.edu/
 fldist <- rgdal::readOGR("C:/Users/Ryan/Documents/zika/USF-Zika-Research/mapping/districts114.shp")
 fldist <- fldist[fldist@data$STATENAME == "Florida", ]
@@ -293,3 +298,139 @@ summary(fit)
 fit$coefficients
 
 fit <- lm(retweets ~ images + `image urls` + videos + `video urls` + urls + text, totstat1)
+
+
+
+#Create a time series graph: x-asis: time, y-axis: frequency, color: entities (federal/state/local), 
+CairoWin()
+tweetCAG %>% group_by(cleandate, GeneralizedGrouping) %>% summarize(tweets = n()) %>% complete(cleandate, GeneralizedGrouping) %>% 
+  ungroup %>% complete(cleandate, GeneralizedGrouping, fill = list(tweets = 0)) %>% 
+  ggplot(aes(x = cleandate, y = tweets)) + 
+  geom_line(aes(group = GeneralizedGrouping, linetype = GeneralizedGrouping)) + 
+  labs(linetype = "", x = "", y = "Tweet Count") + theme_hc() + 
+  theme(legend.position = "right", axis.text.x = element_text(angle = 90, vjust = .5, hjust = -.5)) +
+  scale_x_date(limits = c(as.Date("2016-08-25"), as.Date("2016-09-21")), date_labels = "%b %d, %Y", 
+               date_breaks = "2 days", date_minor_breaks = "days", expand=c(0,0)) +
+  scale_y_continuous(limits = c(0,60), breaks = (seq(0 , 60, by = 15)), expand= c(0,0))
+
+ggsave(file = "timeseries.png", type="cairo-png", width = 6, height = 4, units = "in")
+
+#same but with retweets
+CairoWin()
+
+parsed30d %>% left_join(totstat[, c("screen_name", "GeneralizedGrouping")], by = c("rt_screen_name" = "screen_name")) %>% 
+  group_by(cleandate, GeneralizedGrouping) %>% summarize(retweets = n()) %>% complete(cleandate, GeneralizedGrouping) %>% 
+  ungroup %>% complete(cleandate, GeneralizedGrouping, fill = list(retweets = 0)) %>% 
+  
+  ggplot(aes(x = cleandate, y = retweets)) + 
+  geom_line(aes(group = GeneralizedGrouping, linetype = GeneralizedGrouping)) + 
+  labs(color = "", x = "", y = "Retweet Count", linetype = "") + theme_hc() + 
+  theme(legend.position = "right", axis.text.x = element_text(angle = 90, vjust = .5, hjust = -.5)) +
+  scale_x_date(limits = c(as.Date("2016-08-25"), as.Date("2016-09-21")), date_labels = "%b %d, %Y", 
+               date_breaks = "2 days", date_minor_breaks = "days", expand=c(0,0)) +
+  scale_y_continuous(limits = c(0,2000), breaks = (seq(0 , 2000, by = 250)), expand= c(0,0))
+
+ggsave(file = "timeseriesRetweets.png", type="cairo-png", width = 6, height = 4, units = "in")
+
+
+#same but with mentions
+CairoWin()
+
+men <- strsplit(parsed30d$mentioned_users, ";")
+names(men) <- parsed30d$cleandate
+men <- lapply(men, function(x) if(!is.na(x[1]))x)
+men <- men[!sapply(men, is.null)]
+
+lapply(seq_along(men), function(i) {
+  as.vector(rbind(rep(names(men)[[i]], length(men[[i]])),
+                  men[[i]]))}) %>% unlist %>% 
+  data.frame(cleandate = .[seq(1, length(.), 2)],
+                  screen_name = .[seq(2, length(.), 2)],
+                  stringsAsFactors = F) %>% 
+  tbl_df %>% group_by(cleandate, screen_name) %>% summarize(value = n()) %>% 
+  left_join(totstat[ ,c("screen_name", "GeneralizedGrouping")], by = "screen_name") %>% filter(!is.na(GeneralizedGrouping)) %>%
+  group_by(cleandate, GeneralizedGrouping) %>% summarize(mentions = sum(value)) %>% ungroup %>% 
+  complete(cleandate, GeneralizedGrouping, fill = list(mentions = 0)) %>%
+
+  ggplot(aes(x = as.Date(cleandate), y = mentions)) + 
+  geom_line(aes(group = GeneralizedGrouping, linetype = GeneralizedGrouping)) + 
+  labs(linetype = "", x = "", y = "Mentions Count") + theme_hc() + 
+  theme(legend.position = "right", axis.text.x = element_text(angle = 90, vjust = .5, hjust = -.5)) +
+  scale_x_date(limits = c(as.Date("2016-08-25"), as.Date("2016-09-21")), date_labels = "%b %d, %Y", 
+               date_breaks = "2 days", date_minor_breaks = "days", expand=c(0,0)) +
+  scale_y_continuous(limits = c(0,8000), breaks = (seq(0 , 8000, by = 1000)), expand= c(0,0))
+
+ggsave(file = "timeseriesmentions.png", type="cairo-png", width = 6, height = 4, units = "in")
+
+
+
+
+#Create one graph: x-axis is time, y-axis tweet count, colors are federal/state/local after excluding senators, congressmen, mayors
+tweetCAG %>% filter(screen_name %in% nonticians$X1) %>% group_by(cleandate, GeneralizedGrouping) %>% summarize(tweets = n()) %>% complete(cleandate, GeneralizedGrouping) %>% 
+  ungroup %>% complete(cleandate, GeneralizedGrouping, fill = list(tweets = 0)) %>% 
+  ggplot(aes(x = cleandate, y = tweets)) + 
+  geom_line(aes(group = GeneralizedGrouping, linetype = GeneralizedGrouping)) + 
+  labs(linetype = "", x = "", y = "Tweet Count") + theme_hc() + 
+  theme(legend.position = "right", axis.text.x = element_text(angle = 90, vjust = .5, hjust = -.5)) +
+  scale_x_date(limits = c(as.Date("2016-08-25"), as.Date("2016-09-21")), date_labels = "%b %d, %Y", 
+               date_breaks = "2 days", date_minor_breaks = "days", expand=c(0,0)) +
+  scale_y_continuous(limits = c(0,60), breaks = (seq(0 , 60, by = 15)), expand= c(0,0))
+
+ggsave(file = "timeseriesnonpol.png", type="cairo-png", width = 6, height = 4, units = "in")
+
+#Create another graph: x-axis is time, y-axis tweet count, colors are senators, congressmen, mayors
+
+tweetCAG %>% filter(screen_name %in% onlyp$X1) %>% group_by(cleandate, GeneralizedGrouping) %>% summarize(tweets = n()) %>% complete(cleandate, GeneralizedGrouping) %>% 
+  ungroup %>% complete(cleandate, GeneralizedGrouping, fill = list(tweets = 0)) %>% 
+  ggplot(aes(x = cleandate, y = tweets)) + 
+  geom_line(aes(group = GeneralizedGrouping, color = GeneralizedGrouping)) + 
+  labs(color = "", x = "", y = "Tweet Count") + theme_hc() + 
+  theme(legend.position = "right", axis.text.x = element_text(angle = 90, vjust = .5, hjust = -.5)) +
+  scale_x_date(limits = c(as.Date("2016-08-25"), as.Date("2016-09-21")), date_labels = "%b %d, %Y", 
+               date_breaks = "2 days", date_minor_breaks = "days", expand=c(0,0)) +
+  scale_y_continuous(limits = c(0,60), breaks = (seq(0 , 60, by = 15)), expand= c(0,0))
+
+ggsave(file = "onlypsamsescale.png", type="cairo-png", width = 6, height = 4, units = "in")
+
+tweetCAG %>% filter(screen_name %in% onlyp$X1) %>% group_by(cleandate, GeneralizedGrouping) %>% summarize(tweets = n()) %>% complete(cleandate, GeneralizedGrouping) %>% 
+  ungroup %>% complete(cleandate, GeneralizedGrouping, fill = list(tweets = 0)) %>% 
+  ggplot(aes(x = cleandate, y = tweets)) + 
+  geom_line(aes(group = GeneralizedGrouping, color = GeneralizedGrouping)) + 
+  labs(color = "", x = "", y = "Tweet Count") + theme_hc() + 
+  theme(legend.position = "right", axis.text.x = element_text(angle = 90, vjust = .5, hjust = -.5)) +
+  scale_x_date(limits = c(as.Date("2016-08-25"), as.Date("2016-09-21")), date_labels = "%b %d, %Y", 
+               date_breaks = "2 days", date_minor_breaks = "days", expand=c(0,0)) +
+  scale_y_continuous(limits = c(0,20), breaks = (seq(0 , 20, by = 5)), expand= c(0,0))
+
+ggsave(file = "onlyp.png", type="cairo-png", width = 6, height = 4, units = "in")
+
+
+
+white_gen_combined %>% group_by(X) %>% summarise(sum = sum(signature_count)) %>% ungroup %>%
+  ggplot() + geom_line(aes(x= anydate(X, "%Y-%m"), y = log10(sum), linetype = "WtP")) +
+  geom_line(data = googleTrends, aes(x = anydate(Month, "%Y-%m"), y = log10(`white genocide: (Worldwide)`), linetype = "Google Trends")) +
+  theme_hc() + theme(legend.position = "right", axis.text.x = element_text(angle = 90, vjust = .5)) +
+  labs(x = "", y = "Log10 of Counts") + scale_x_date(limits = c(as.Date("2012-11-01"), as.Date("2018-01-01")), date_labels = "%b, %Y", 
+                               date_breaks = "3 month" , date_minor_breaks = "month", expand = c(0,0)) +
+  scale_y_continuous(limits = c(0,4), expand= c(0,0)) +
+  scale_linetype_manual(name = "", values = c("WtP" = 2, "Google Trends" = 1))
+
+
+
+
+
+
+
+rubsett %>% subset(select = c(screen_name, followers_count, timestamp_ms)) %>%  group_by(screen_name) %>% 
+  filter(timestamp_ms == max(timestamp_ms) | timestamp_ms == min(timestamp_ms)) %>% 
+  summarize(follower_first = .[which.min(timestamp_ms)], followers_last = .[which.max(timestamp_ms)]) %>% View()
+
+
+
+
+library(RWordPress)
+library(knitr)
+options(WordpressLogin = c(ryanscharf = "VGza)05GJtf^vNf7aABN(EV2"), 
+        WordpressURL = "https://ryanscharf.com/xmlrpc.php")
+
+knit2wp("notebook.Rmd", title = "USF Zika Research")
